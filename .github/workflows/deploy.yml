@@ -1,0 +1,35 @@
+name: Deploy to Live Instance
+
+# Triggers after Validate Template passes on main push.
+# Uses Tailscale GitHub Action (Option A) to reach lain-node on Tailscale.
+
+on:
+  workflow_run:
+    workflows: ["Validate Template"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  trigger-self-update:
+    name: Trigger lain-node self-update via Tailscale
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          tags: tag:ci
+
+      - name: Trigger lain-node self-update
+        run: |
+          echo "Triggering self-update on lain-node (SHA: ${{ github.event.workflow_run.head_sha }})"
+          curl -X POST "http://100.110.36.84:8766/trigger" \
+            -H "X-Trigger-Token: ${{ secrets.LAIN_TRIGGER_TOKEN }}" \
+            -H "X-Update-From: ${{ github.event.workflow_run.head_sha }}" \
+            --max-time 15 \
+            --retry 2 \
+            -f \
+            && echo "Self-update triggered successfully." \
+            || echo "Trigger failed (non-fatal — lain-node will self-update at next wake)."
