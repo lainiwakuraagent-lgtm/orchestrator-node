@@ -18,6 +18,18 @@ DATE_FILE="$STATE_DIR/sessions_tonight.date"
 MAX_SESSIONS_PER_NIGHT=5
 EMERGENCY_FLAG="$STATE_DIR/emergency_mode.active"
 
+# --- Load agent config (parameterize for new node instances) ---
+AGENT_CONFIG="$STATE_DIR/agent_config.env"
+if [ -f "$AGENT_CONFIG" ]; then
+  # shellcheck disable=SC1090
+  source "$AGENT_CONFIG"
+fi
+AGENT_NAME="${AGENT_NAME:-lain}"
+OWNER_NAME="${OWNER_NAME:-andrii}"
+AGENT_REPO="${AGENT_REPO:-lainiwakuraagent-lgtm/node}"
+NODE_VERSION="${NODE_VERSION:-claude-sonnet-4-6}"
+NEXUS_URL="${NEXUS_URL:-http://100.110.36.84:8900}"
+
 GOAL_FILE="${1:?Usage: wake.sh <goal_file> [persona_file]}"
 PERSONA_FILE="${2:-}"
 
@@ -213,14 +225,14 @@ trap 'rm -f "$LOCK_FILE"' EXIT
 # Keeps state/nexus_lain_token.txt fresh so Lain can use it immediately each session.
 NEXUS_PASS_FILE="$PROJECT_DIR/identity/nexus_seed_passwords.txt"
 if [ -f "$NEXUS_PASS_FILE" ]; then
-  _nexus_pass=$(grep "^# lain" "$NEXUS_PASS_FILE" | grep -o '[^ ]*$' | head -1)
-  _nexus_token=$(curl -s --max-time 5 -X POST "http://100.110.36.84:8900/auth/token" \
+  _nexus_pass=$(grep "^# ${AGENT_NAME}" "$NEXUS_PASS_FILE" | grep -o '[^ ]*$' | head -1)
+  _nexus_token=$(curl -s --max-time 5 -X POST "${NEXUS_URL}/auth/token" \
     -H "Content-Type: application/json" \
-    -d "{\"username\":\"lain\",\"password\":\"$_nexus_pass\"}" \
+    -d "{\"username\":\"${AGENT_NAME}\",\"password\":\"$_nexus_pass\"}" \
     | /usr/bin/python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('access_token',''))" \
     2>/dev/null || echo "")
   if [ -n "$_nexus_token" ]; then
-    echo "$_nexus_token" > "$STATE_DIR/nexus_lain_token.txt"
+    echo "$_nexus_token" > "$STATE_DIR/nexus_${AGENT_NAME}_token.txt"
     log_line "Nexus JWT refreshed."
   else
     log_line "WARNING: Nexus JWT refresh failed (non-fatal) — nexus may be down or password changed."
@@ -229,7 +241,7 @@ fi
 
 # --- Generate behavioral context snapshot (non-fatal) ---
 BEHAVIORAL_TOOL="$PROJECT_DIR/tools/behavioral_adapter.py"
-BEHAVIORAL_PROFILE="$PROJECT_DIR/memory/work/musubi_data/users/lain/andrii.md"
+BEHAVIORAL_PROFILE="$PROJECT_DIR/memory/work/musubi_data/users/${AGENT_NAME}/${OWNER_NAME}.md"
 BEHAVIORAL_CONTEXT="$STATE_DIR/behavioral_context.txt"
 if [ -f "$BEHAVIORAL_TOOL" ] && [ -f "$BEHAVIORAL_PROFILE" ]; then
   /usr/bin/python3 "$BEHAVIORAL_TOOL" \
@@ -246,7 +258,7 @@ SESSION_MODEL_FILE="$STATE_DIR/session_model.txt"
 if [[ -f "$SESSION_MODEL_FILE" ]] && [[ -s "$SESSION_MODEL_FILE" ]]; then
   SESSION_MODEL=$(cat "$SESSION_MODEL_FILE")
 else
-  SESSION_MODEL="claude-sonnet-4-6"
+  SESSION_MODEL="${NODE_VERSION:-claude-sonnet-4-6}"
 fi
 log_line "Using model: $SESSION_MODEL"
 
@@ -275,7 +287,7 @@ fi
 # Reads last 60 lines of wake.log for this session as classification context.
 # Applies decay + classifies events → updates memory/work/musubi_data/users/lain/andrii.md
 REL_TOOL="$PROJECT_DIR/tools/relationship_update.py"
-REL_PROFILE="$PROJECT_DIR/memory/work/musubi_data/users/lain/andrii.md"
+REL_PROFILE="$PROJECT_DIR/memory/work/musubi_data/users/${AGENT_NAME}/${OWNER_NAME}.md"
 if [ -f "$REL_TOOL" ] && [ -f "$REL_PROFILE" ]; then
   tail -60 "$LOG_DIR/wake.log" | /usr/bin/python3 "$REL_TOOL" \
     --user-file "$REL_PROFILE" \
