@@ -1,0 +1,58 @@
+name: Validate Template
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shellcheck:
+    name: ShellCheck (.sh files)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+      - name: Lint all shell scripts
+        run: |
+          find . -name "*.sh" -not -path "./.git/*" \
+            | xargs shellcheck --severity=warning
+
+  python-syntax:
+    name: Python syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check all .py files compile
+        run: |
+          find . -name "*.py" -not -path "./.git/*" \
+            | xargs python3 -m py_compile && echo "All .py files OK"
+
+  template-structure:
+    name: Required files present
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check required template files
+        run: |
+          required=(
+            "scripts/wake.sh"
+            "tools/check_replies.sh"
+            "tools/check_nexus.sh"
+            "tools/telegram_send.sh"
+            "tools/check_context.sh"
+            "tools/check_time.sh"
+            "prompts/wrapper_prompt.md"
+            "state/agent_config.env.example"
+          )
+          fail=0
+          for f in "${required[@]}"; do
+            if [ -f "$f" ]; then
+              echo "  OK: $f"
+            else
+              echo "MISSING: $f"
+              fail=1
+            fi
+          done
+          exit $fail
