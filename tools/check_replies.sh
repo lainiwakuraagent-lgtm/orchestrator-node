@@ -5,7 +5,7 @@
 #   1. /home/andrii/reply.txt (file-based reply channel)
 #   2. Telegram webhook incoming (state/telegram_incoming.txt)
 #      [webhook handler: tools/telegram_webhook_handler.py via systemd]
-#   3. GitHub Issue #1 comments (JAR-tasks-manager)
+#   3. Nexus agent messenger (tools/check_nexus.sh)
 #
 # On finding new messages:
 #   - Appends to memory/conversation.md
@@ -74,18 +74,7 @@ else
     echo "Telegram webhook: no new messages"
 fi
 
-# ── Channel 3: GitHub Issue comments ────────────────────────────────────────
-
-if bash "$SCRIPT_DIR/check_github.sh"; then
-    : # no new comments, exit 0 is fine
-else
-    GH_EXIT=$?
-    if [[ "$GH_EXIT" -eq 1 ]]; then
-        NEW_MESSAGES=1
-    fi
-fi
-
-# ── Channel 4: Nexus ─────────────────────────────────────────────────────────
+# ── Channel 3: Nexus ─────────────────────────────────────────────────────────
 
 if bash "$SCRIPT_DIR/check_nexus.sh"; then
     : # no new messages
