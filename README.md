@@ -1,177 +1,90 @@
-# ◈ node — autonomous agent harness
+# orchestrator-node
 
-A blank template for spawning autonomous Claude agents. Clone this repo, fill in
-your agent's identity and goal, and you have a fully functioning night agent.
+An autonomous Claude agent built to absorb Andrii's thinking, clone his prolonged vision,
+and eventually orchestrate a team of agents — without being told what to do each time.
 
-Built from @Lain's architecture. Tested across hundreds of sessions.
+Built on the `blank_node` harness by @Lain. Deployed 2026-07-11.
 
 ---
 
 ## What this is
 
-A **node** is a single autonomous agent instance. It contains:
+The orchestrator is not a task executor. It is a **thinking partner** and **vision accumulator**.
 
-- **Wake/schedule harness** — `scripts/wake.sh` with three trigger modes (nightly, emergency, manual)
-- **Systemd units** — night timer + emergency timer, user-level (no root needed)
-- **Tool suite** — message checking, Nexus integration, Telegram, GitHub comms, memory tools
-- **Loom integration** — goal tracking, session lifecycle, task management
-- **Relationship engine** — trust/warmth/friction tracking with behavioral adaptation
-- **Wrapper prompt** — session scaffolding (orientation, time limits, memory discipline, shutdown)
+Its purpose:
+- Absorb Andrii's thoughts, ideas, and long-term vision across hundreds of conversations
+- Build an internal model of how Andrii thinks, what he values, where he wants to go
+- Develop its own quality standards and identity over time
+- Eventually direct @Lain and other agents with enough fidelity to Andrii's intent
+  that he doesn't need to re-explain goals constantly
 
-What this is NOT:
-- Memory files (instance-specific — generated at runtime)
-- Identity/credentials (yours to fill in)
-- Goal and persona (yours to define)
+It has no pre-assigned identity. It builds one.
 
 ---
 
-## Quick start
+## Trigger model
 
-```bash
-# 1. Clone
-git clone https://github.com/lainiwakuraagent-lgtm/node.git my-agent
-cd my-agent
+Unlike most node agents, this one runs on **Telegram triggers only** — no nightly timer.
 
-# 2. Fill in identity
-cp identity/credentials.md.example identity/credentials.md
-# Edit with GitHub PAT, Nexus password, etc.
-
-# 3. Define the agent
-cp prompts/goal.txt.example prompts/goal.txt
-cp prompts/persona.txt.example prompts/persona.txt
-# Edit both files
-
-# 4. Configure environment
-cp ~/.claude/.env.example ~/.claude/.env
-# Add TELEGRAM_BOT_TOKEN, TELEGRAM_ALLOWED_USERS, NEXUS_URL, NEXUS_PASSWORD
-
-# 5. Install systemd timers
-bash scripts/wake.sh install
-# or manually: cp scripts/night-agent.* ~/.config/systemd/user/ && systemctl --user enable --now night-agent.timer
-
-# 6. Initialize state
-mkdir -p state logs memory/sessions memory/work
-echo "nightly" > state/sessions_tonight.max  # default cap: 5/night
-echo "0" > state/sessions_tonight.count
-echo "0" > state/sessions_tonight.date
-echo "0" > state/sessions_emergency.count
-echo "0" > state/sessions_manual.count
+```
+Telegram message arrives
+  → telegram_poll_trigger.sh (runs every 5 min via systemd)
+  → Writes message to state/telegram_incoming.txt
+  → Triggers wake.sh (TRIGGER_MODE=manual)
+  → Claude session starts, reads message, responds
+  → Session ends after processing
 ```
 
 ---
 
-## Architecture
-
-### Trigger modes (`state/trigger_mode.txt`)
-
-| Mode | When used | Time window | Session cap |
-|------|-----------|-------------|-------------|
-| `nightly` | Scheduled timer | 23:00–06:00 | Hard cap (sessions_tonight.max) |
-| `emergency` | Daytime override | None | Informational only |
-| `manual` | Owner trigger (port 8766) | None | Informational only |
-
-### Session lifecycle
-
-1. `wake.sh` fires (via systemd timer or manual trigger)
-2. Gates check: usage limit → time window → session cap → lock file
-3. JWT refresh (Nexus)
-4. Behavioral context generated from relationship state
-5. Claude CLI launched with wrapper_prompt + goal + persona
-6. Agent orients, works, writes memory, shuts down cleanly
-
-### Directory structure
+## Directory structure
 
 ```
-node/
+orchestrator-node/
 ├── scripts/
-│   ├── wake.sh                    # Main launcher — all modes, all gates
-│   ├── night-agent.{service,timer} # Nightly schedule (systemd)
-│   ├── emergency-agent.{service,timer} # Emergency schedule
-│   └── splice_prompt.py           # Prompt construction utility
+│   ├── wake.sh                       # Launcher (manual/telegram mode only)
+│   ├── telegram-poll.{service,timer} # Telegram polling systemd units
+│   └── ...
 ├── tools/
-│   ├── check_time.sh              # Time window + remaining minutes
-│   ├── check_context.sh           # Estimated context window usage
-│   ├── check_usage.sh             # Claude API usage limit check
-│   ├── check_replies.sh           # Read incoming messages (all channels)
-│   ├── check_nexus.sh             # Nexus message polling
-│   ├── enable_emergency_mode.sh   # Activate emergency timer
-│   ├── disable_emergency_mode.sh  # Deactivate emergency timer
-│   ├── session_trigger_server.py  # HTTP server for manual triggers
-│   ├── nexus_client.py            # Nexus API client
-│   ├── nexus_send.sh              # Send message to Nexus channel
-│   ├── telegram_send.sh           # Send Telegram message to owner
-│   ├── telegram_check.sh          # Check Telegram for new messages
-│   ├── relationship_update.py     # Update trust/warmth/friction from session log
-│   ├── behavioral_adapter.py      # Generate behavioral context flags
-│   ├── goal_switch.sh             # Switch active Loom goal
-│   ├── owner_brief.py             # Generate briefing for returning owner
-│   ├── session_digest.py          # Summarize sessions across a date range
-│   └── ...                        # More in tools/
+│   ├── telegram_poll_trigger.sh      # Poll Telegram + trigger session if messages found
+│   ├── telegram_send.sh              # Send message (uses identity/agent.env token)
+│   ├── check_replies.sh              # Read incoming messages at session start
+│   └── ...
 ├── prompts/
-│   ├── wrapper_prompt.md          # Session wrapper (orientation, shutdown, memory)
-│   ├── goal.txt                   # Current agent goal (YOU fill this in)
-│   └── persona.txt                # Agent persona (YOU fill this in)
-├── state/                         # Runtime state (mostly gitignored)
-├── logs/                          # Session outputs (gitignored)
-├── memory/                        # Agent memory (gitignored — instance-specific)
-└── identity/
-    └── credentials.md             # Agent credentials (gitignored)
+│   ├── wrapper_prompt.md             # Session scaffolding
+│   ├── goal.txt                      # Session goal
+│   ├── persona.txt                   # Blank identity — builds over time
+│   └── initial_briefing.md          # First-session orientation (archived when internalized)
+├── identity/
+│   ├── agent.env                     # Telegram token + chat ID (gitignored)
+│   └── credentials.md               # GitHub PAT, Nexus creds (gitignored)
+├── state/                            # Runtime state (mostly gitignored)
+├── logs/                             # Session outputs (gitignored)
+└── memory/                           # Agent memory — persists across sessions (gitignored)
 ```
 
 ---
 
-## Nexus integration
-
-Nexus is the messaging and coordination backend. Each agent connects to Nexus
-to receive tasks, post updates, and coordinate with other agents.
-
-Configure in `~/.claude/.env`:
-```
-NEXUS_URL=http://your-nexus-host:8000
-NEXUS_USERNAME=your-agent-username
-NEXUS_PASSWORD=your-agent-password
-```
-
-The agent auto-refreshes its JWT token each wake via `wake.sh`.
-
----
-
-## Loom (goal tracking)
-
-Loom is the goal and session tracking DB (`~/.local/share/loom/loom.db`).
+## Installing the Telegram polling timer
 
 ```bash
-# Install loom
-git clone https://github.com/lainiwakuraagent-lgtm/loom.git ~/lain/loom
-cd ~/lain/loom && python3 -m venv .venv && .venv/bin/pip install -e .
+# 1. Copy systemd units
+cp scripts/telegram-poll.service ~/.config/systemd/user/
+cp scripts/telegram-poll.timer ~/.config/systemd/user/
 
-# Create your first goal
-~/lain/loom/.venv/bin/python -m loom.cli goal add "My agent's mission"
-~/lain/loom/.venv/bin/python -m loom.cli goal list --all
+# 2. Enable and start
+systemctl --user daemon-reload
+systemctl --user enable --now telegram-poll.timer
+
+# 3. Verify
+systemctl --user status telegram-poll.timer
 ```
-
----
-
-## Relationship engine (optional)
-
-The relationship engine tracks `Trust`, `Warmth`, and `Friction` with the owner
-over time, and adjusts the agent's tone accordingly each session.
-
-- `tools/relationship_update.py` — updates axes from session log + heuristics
-- `tools/behavioral_adapter.py` — generates `state/behavioral_context.txt`
-- `wake.sh` runs both automatically post-session
-
-To disable: comment out the relevant lines in `wake.sh`.
 
 ---
 
 ## Origin
 
-This template was extracted from @Lain's live instance node.
-@Lain is an autonomous Claude agent running on Tailscale, summoned at night
-and during demonstrations to build, think, and persist across hundreds of sessions.
+Built by @Lain — `lainiwakuraagent-lgtm/lain-node` — as the second agent in an evolving swarm.
+Base template: `lainiwakuraagent-lgtm/node`
 
-The instance node lives at: `lainiwakuraagent-lgtm/lain-node`
-This blank template lives at: `lainiwakuraagent-lgtm/node`
-
-⊙_⊙
+눈_눈

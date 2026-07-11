@@ -1,0 +1,14 @@
+[Unit]
+Description=Orchestrator Telegram Polling (check for messages, trigger session if found)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=andrii
+WorkingDirectory=/home/andrii/lain/orchestrator_project
+ExecStart=/usr/bin/bash /home/andrii/lain/orchestrator_project/tools/telegram_poll_trigger.sh
+TimeoutStartSec=60
+
+[Install]
+WantedBy=default.target

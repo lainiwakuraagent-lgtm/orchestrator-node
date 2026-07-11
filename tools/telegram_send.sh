@@ -1,30 +1,35 @@
 #!/usr/bin/env bash
-# telegram_send.sh — Send a message to the owner via Telegram bot
+# telegram_send.sh — Send a message to Andrii via orchestrator Telegram bot
 #
 # Usage: telegram_send.sh "message text"
 #   or:  telegram_send.sh  (reads message from stdin)
 #
-# Prints the message_id of the sent message on success.
-# Token source: ~/.claude/.env (TELEGRAM_BOT_TOKEN)
-# Chat ID source: ~/.claude/.env (TELEGRAM_ALLOWED_USERS)
+# Token source: PROJECT_DIR/identity/agent.env (TELEGRAM_BOT_TOKEN)
+# Chat ID source: PROJECT_DIR/identity/agent.env (TELEGRAM_CHAT_ID)
 
 set -euo pipefail
 
-ENV_FILE="$HOME/.claude/.env"
-TOKEN=$(grep 'TELEGRAM_BOT_TOKEN' "$ENV_FILE" | cut -d= -f2)
-CHAT_ID=$(grep 'TELEGRAM_ALLOWED_USERS' "$ENV_FILE" | cut -d= -f2)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+AGENT_ENV="$PROJECT_DIR/identity/agent.env"
+
+if [[ ! -f "$AGENT_ENV" ]]; then
+    echo "ERROR: $AGENT_ENV not found" >&2
+    exit 2
+fi
+
+TOKEN=$(grep 'TELEGRAM_BOT_TOKEN' "$AGENT_ENV" | cut -d= -f2)
+CHAT_ID=$(grep 'TELEGRAM_CHAT_ID' "$AGENT_ENV" | cut -d= -f2)
 
 if [[ -z "$TOKEN" ]]; then
-    echo "ERROR: TELEGRAM_BOT_TOKEN not found in $ENV_FILE" >&2
+    echo "ERROR: TELEGRAM_BOT_TOKEN not found in $AGENT_ENV" >&2
     exit 2
 fi
-
 if [[ -z "$CHAT_ID" ]]; then
-    echo "ERROR: TELEGRAM_ALLOWED_USERS not found in $ENV_FILE" >&2
+    echo "ERROR: TELEGRAM_CHAT_ID not found in $AGENT_ENV" >&2
     exit 2
 fi
 
-# Get message from arg or stdin
 if [[ $# -ge 1 ]]; then
     MESSAGE="$*"
 else
@@ -36,15 +41,17 @@ if [[ -z "$MESSAGE" ]]; then
     exit 2
 fi
 
-RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+CURL="${CURL_CMD:-curl}"
+RESPONSE=$($CURL -s -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
     --data-urlencode "chat_id=${CHAT_ID}" \
-    --data-urlencode "text=${MESSAGE}")
+    --data-urlencode "text=${MESSAGE}" \
+    --data-urlencode "parse_mode=Markdown")
 
-OK=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('ok','false'))")
+OK=$(echo "$RESPONSE" | /usr/bin/python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('ok','false'))")
 if [[ "$OK" != "True" ]]; then
     echo "ERROR: sendMessage failed: $RESPONSE" >&2
     exit 2
 fi
 
-MSG_ID=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['result']['message_id'])")
+MSG_ID=$(echo "$RESPONSE" | /usr/bin/python3 -c "import sys,json; d=json.load(sys.stdin); print(d['result']['message_id'])")
 echo "sent message_id=${MSG_ID}"

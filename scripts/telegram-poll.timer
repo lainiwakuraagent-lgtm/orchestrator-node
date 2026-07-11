@@ -1,0 +1,11 @@
+[Unit]
+Description=Orchestrator Telegram Poll Timer — checks every 5 minutes
+Requires=telegram-poll.service
+
+[Timer]
+# Poll every 5 minutes
+OnBootSec=2min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

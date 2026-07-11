@@ -14,6 +14,7 @@ state/behavioral_context.txt
 state/session_start_epoch
 state/session_model.txt
 state/emergency_mode.active
+state/telegram_update_offset
 
 # Logs — keep structure, skip content
 logs/*.log
@@ -35,6 +36,8 @@ memory/work/
 # Identity — credentials never go to git
 identity/credentials.md
 identity/nexus_seed_passwords.txt
+identity/agent.env
+identity/telegram_token.txt
 
 # Python cache
 tools/__pycache__/
