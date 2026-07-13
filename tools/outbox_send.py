@@ -1,14 +1,34 @@
 #!/usr/bin/env python3
 """
-outbox_send.py — Write a message to state/conversation/outbox.json.
+outbox_send.py — Write a typed entry to state/conversation/outbox.json.
 
-Used by the execution layer to proactively push messages to Andrii via
-Telegram, without directly touching the Telegram API. The conversational
-layer (telegram_watcher.py) polls the outbox on each cycle and forwards
-any pending entries via telegram_send.sh.
+Used by the execution layer to proactively push messages or questions to
+Andrii (via Telegram) or other agents (via Nexus DM), without directly
+touching those APIs. The conversational layer (telegram_watcher.py) polls
+the outbox on each cycle and routes each entry based on type+to.
+
+Schema:
+    {
+        "id": "<8-char uuid>",
+        "from": "<sender>",
+        "type": "message" | "question",
+        "to": "owner" | "agent:<name>",
+        "content": "<text>",
+        "timestamp": <unix_ts>,
+        "sent": false,
+        "priority": "normal" | "high"   (optional)
+    }
+
+Routing (done by telegram_watcher.py):
+    type=message  + to=owner         → Telegram
+    type=question + to=owner         → Telegram (prefixed "Question for you:")
+    type=message  + to=agent:<name>  → Nexus DM (conversation in nexus_routing.json)
+    type=question + to=agent:<name>  → Nexus DM (question framing)
 
 Usage:
     python3 tools/outbox_send.py --content "message text"
+    python3 tools/outbox_send.py --content "..." --type question --to owner
+    python3 tools/outbox_send.py --content "..." --type message --to agent:asuka
     echo "message text" | python3 tools/outbox_send.py
     python3 tools/outbox_send.py --check   # print pending count (for testing)
 """
@@ -39,15 +59,26 @@ def save_outbox(entries: list) -> None:
     OUTBOX_FILE.write_text(json.dumps(entries, indent=2))
 
 
-def send_message(content: str, sender: str = "execution_layer") -> None:
+def send_message(
+    content: str,
+    sender: str = "execution_layer",
+    msg_type: str = "message",
+    to: str = "owner",
+    priority: str | None = None,
+) -> None:
     entries = load_outbox()
-    entries.append({
+    entry: dict = {
         "id": str(uuid.uuid4())[:8],
         "from": sender,
+        "type": msg_type,
+        "to": to,
         "content": content,
         "timestamp": int(time.time()),
         "sent": False,
-    })
+    }
+    if priority:
+        entry["priority"] = priority
+    entries.append(entry)
     save_outbox(entries)
     print(f"outbox: queued {len([e for e in entries if not e.get('sent')])} pending")
 
@@ -64,6 +95,14 @@ def main() -> int:
     parser.add_argument("--content", "-c", help="Message content (or read from stdin)")
     parser.add_argument("--from", dest="sender", default="execution_layer",
                         help="Sender label (default: execution_layer)")
+    parser.add_argument("--type", dest="msg_type", default="message",
+                        choices=["message", "question"],
+                        help="Entry type: message (default) or question")
+    parser.add_argument("--to", dest="to", default="owner",
+                        help="Destination: 'owner' (default) or 'agent:<name>'")
+    parser.add_argument("--priority", default=None,
+                        choices=["normal", "high"],
+                        help="Optional priority flag")
     parser.add_argument("--check", action="store_true",
                         help="Check pending count only, do not write")
     args = parser.parse_args()
@@ -84,7 +123,8 @@ def main() -> int:
         print("ERROR: empty message", file=sys.stderr)
         return 1
 
-    send_message(content, sender=args.sender)
+    send_message(content, sender=args.sender, msg_type=args.msg_type,
+                 to=args.to, priority=args.priority)
     return 0
 
 
