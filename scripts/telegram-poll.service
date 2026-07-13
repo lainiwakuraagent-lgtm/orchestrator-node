@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=andrii
+KillMode=process
 WorkingDirectory=/home/andrii/lain/orchestrator_project
 ExecStart=/usr/bin/bash /home/andrii/lain/orchestrator_project/tools/telegram_poll_trigger.sh
 TimeoutStartSec=60
