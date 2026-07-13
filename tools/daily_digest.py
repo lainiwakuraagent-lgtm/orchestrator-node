@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+"""
+daily_digest.py — Goal 9, Task 66
+
+Generates state/reports/daily_digest.md: a digest of all sessions from today,
+giving a human-readable overview of what @Lain accomplished in the last 24h.
+
+Usage:
+  python3 tools/daily_digest.py [--date YYYY-MM-DD] [--output PATH] [--send]
+
+  --date DATE    Date to summarize (default: today)
+  --output PATH  Output path (default: state/reports/daily_digest.md)
+  --send         Print to stdout (for Telegram piping) instead of file
+
+Reads:
+  logs/session_log.csv
+  memory/sessions/YYYY-MM-DD_*.md
+  state/reports/ (any dated .md files from today)
+"""
+
+import argparse
+import csv
+import os
+import re
+from datetime import datetime, date
+from pathlib import Path
+
+PROJECT_DIR = Path(os.environ.get("PROJECT_DIR", Path(__file__).parent.parent))
+
+
+def read_today_csv_rows(csv_path: Path, target_date: str) -> list[dict]:
+    """Read session CSV rows for target_date."""
+    if not csv_path.exists():
+        return []
+    rows = []
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        for row in csv.reader(f):
+            if len(row) >= 5 and row[1] and row[0].startswith(target_date):
+                rows.append({
+                    "timestamp": row[0],
+                    "type": row[1],
+                    "duration": row[2],
+                    "context_pct": row[3],
+                    "summary": row[4],
+                })
+    return rows
+
+
+def find_today_session_files(sessions_dir: Path, target_date: str) -> list[Path]:
+    """Find session .md files matching today's date."""
+    if not sessions_dir.exists():
+        return []
+    return sorted(sessions_dir.glob(f"{target_date}_*.md"))
+
+
+def extract_what_done(path: Path) -> list[str]:
+    """Extract bullet points from 'What happened' section of a session file."""
+    try:
+        text = path.read_text()
+    except OSError:
+        return []
+    lines = text.splitlines()
+    items = []
+    in_section = False
+    for line in lines:
+        lower = line.lower()
+        if "## what happened" in lower or "## what was done" in lower or "## what i did" in lower:
+            in_section = True
+            continue
+        elif line.startswith("## ") and in_section:
+            break
+        if in_section and line.strip().startswith("-"):
+            cleaned = line.strip().lstrip("-").strip()
+            if cleaned:
+                items.append(cleaned)
+    return items[:6]
+
+
+def type_stats(rows: list[dict]) -> dict:
+    """Count sessions by type."""
+    counts: dict[str, int] = {}
+    for r in rows:
+        t = r["type"]
+        counts[t] = counts.get(t, 0) + 1
+    return counts
+
+
+def format_ts(ts: str) -> str:
+    try:
+        return datetime.fromisoformat(ts.rstrip("Z")).strftime("%H:%M")
+    except Exception:
+        return ts[11:16]
+
+
+def generate_digest(target_date: str | None = None) -> str:
+    if target_date is None:
+        target_date = date.today().isoformat()
+
+    csv_path = PROJECT_DIR / "logs" / "session_log.csv"
+    sessions_dir = PROJECT_DIR / "memory" / "sessions"
+
+    rows = read_today_csv_rows(csv_path, target_date)
+    session_files = find_today_session_files(sessions_dir, target_date)
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M CEST")
+    total_sessions = len(rows)
+    total_minutes = sum(int(r["duration"]) for r in rows if r["duration"].isdigit())
+    stats = type_stats(rows)
+
+    lines = [
+        f"# Daily Digest — @Lain",
+        f"Date: {target_date}  |  Generated: {now}",
+        "",
+        "---",
+        "",
+        "## Summary",
+        "",
+    ]
+
+    if total_sessions == 0:
+        lines.append(f"No sessions logged for {target_date}.")
+    else:
+        lines.append(f"**{total_sessions}** sessions  |  **{total_minutes}** min total")
+        if stats:
+            breakdown = "  ".join(f"{t}: {n}" for t, n in sorted(stats.items()))
+            lines.append(f"Types: {breakdown}")
+
+    lines += ["", "---", "", "## Sessions", ""]
+
+    for row in rows:
+        ts = format_ts(row["timestamp"])
+        stype = row["type"]
+        dur = row["duration"]
+        summary = row["summary"][:100]
+        lines.append(f"**{ts}** [{stype}, {dur}min] — {summary}")
+
+    lines += ["", "---", "", "## What was done", ""]
+
+    all_items: list[str] = []
+    for sf in session_files:
+        items = extract_what_done(sf)
+        all_items.extend(items)
+
+    # Also gather summaries from CSV if no session files
+    if not all_items:
+        for row in rows:
+            s = row["summary"].strip()
+            if s:
+                all_items.append(s)
+
+    if all_items:
+        seen: set[str] = set()
+        for item in all_items:
+            key = item[:60].lower()
+            if key not in seen:
+                seen.add(key)
+                lines.append(f"- {item}")
+    else:
+        lines.append("*(no session detail files found)*")
+
+    lines += [
+        "",
+        "---",
+        "",
+        "*Generated by tools/daily_digest.py — Goal 9, Task 66.*",
+    ]
+
+    return "\n".join(lines)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Generate daily digest")
+    parser.add_argument("--date", type=str, default=None, help="Date (YYYY-MM-DD, default: today)")
+    parser.add_argument("--output", type=str, default=None)
+    parser.add_argument("--send", action="store_true", help="Print to stdout")
+    args = parser.parse_args()
+
+    digest = generate_digest(args.date)
+
+    if args.send:
+        print(digest)
+    else:
+        out = (
+            Path(args.output) if args.output
+            else PROJECT_DIR / "state" / "reports" / "daily_digest.md"
+        )
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(digest)
+        print(f"Digest written to {out}")
+
+
+if __name__ == "__main__":
+    main()

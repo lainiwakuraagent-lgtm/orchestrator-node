@@ -1,0 +1,12 @@
+[Unit]
+Description=Orchestrator Conversation Layer Watchdog
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /home/andrii/lain/orchestrator_project/tools/conv_watchdog.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

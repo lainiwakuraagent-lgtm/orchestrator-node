@@ -10,7 +10,8 @@
 
 set -euo pipefail
 
-PROJECT_DIR="${PROJECT_DIR:-/home/andrii/lain/agent_project}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="${PROJECT_DIR:-$(dirname "$SCRIPT_DIR")}"
 STATE_DIR="$PROJECT_DIR/state"
 LOG_DIR="$PROJECT_DIR/logs"
 WRAPPER_TEMPLATE="$PROJECT_DIR/prompts/wrapper_prompt.md"
@@ -157,6 +158,62 @@ if [ "$GOAL_STATUS" = "complete" ]; then
   fi
 fi
 
+# --- Session type resolution (Tasks 37/38) ---
+# Priority: SESSION_TYPE env var → session_schedule.json one_off → recurring → default
+# Resolves type, loads type config YAML, assembles context files + type prompt.
+SESSION_TYPE_RESULT=$(mktemp "$STATE_DIR/session_type_result.XXXXXX.json")
+if [ -f "$PROJECT_DIR/scripts/resolve_session_type.py" ]; then
+  _type_stderr=$(python3 "$PROJECT_DIR/scripts/resolve_session_type.py" \
+    --project-dir "$PROJECT_DIR" \
+    --trigger-mode "$TRIGGER_MODE" \
+    --output "$SESSION_TYPE_RESULT" 2>&1) || true
+  log_line "Session type resolution: ${_type_stderr:-no output}"
+
+  # Parse resolved type and resolution source; write to state and export for analytics.
+  CURRENT_SESSION_TYPE=$(python3 -c \
+    "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('session_type','execution'))" \
+    "$SESSION_TYPE_RESULT" 2>/dev/null || echo "execution")
+  CURRENT_SESSION_TYPE_SOURCE=$(python3 -c \
+    "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('resolution_source','default'))" \
+    "$SESSION_TYPE_RESULT" 2>/dev/null || echo "default")
+  export CURRENT_SESSION_TYPE CURRENT_SESSION_TYPE_SOURCE
+  echo "$CURRENT_SESSION_TYPE" > "$STATE_DIR/current_session_type.txt"
+  log_line "Session type: $CURRENT_SESSION_TYPE (source: $CURRENT_SESSION_TYPE_SOURCE)"
+
+  # Build augmented goal: type prompt + context preload + original goal content.
+  # Falls back to original goal if the augmentation step fails.
+  AUGMENTED_GOAL=$(mktemp "$STATE_DIR/augmented_goal.XXXXXX.md")
+  python3 -c "
+import json, sys
+try:
+    data = json.load(open(sys.argv[1]))
+    goal = open(sys.argv[2]).read().strip()
+    parts = []
+    p = data.get('prompt_content', '').strip()
+    c = data.get('assembled_context', '').strip()
+    if p:
+        parts.append(p)
+    if c:
+        parts.append('## CONTEXT PRELOAD\n\n' + c)
+    parts.append(goal)
+    open(sys.argv[3], 'w').write('\n\n---\n\n'.join(parts) + '\n')
+except Exception:
+    import shutil
+    shutil.copy(sys.argv[2], sys.argv[3])
+" "$SESSION_TYPE_RESULT" "$GOAL_FILE" "$AUGMENTED_GOAL" 2>/dev/null \
+    || cp "$GOAL_FILE" "$AUGMENTED_GOAL"
+
+  rm -f "$SESSION_TYPE_RESULT"
+  GOAL_FILE="$AUGMENTED_GOAL"
+  log_line "Augmented goal built for session type: $CURRENT_SESSION_TYPE"
+else
+  log_line "WARNING: resolve_session_type.py not found — skipping type injection."
+  CURRENT_SESSION_TYPE="execution"
+  CURRENT_SESSION_TYPE_SOURCE="default"
+  export CURRENT_SESSION_TYPE CURRENT_SESSION_TYPE_SOURCE
+  echo "$CURRENT_SESSION_TYPE" > "$STATE_DIR/current_session_type.txt"
+fi
+
 if [ -n "$PERSONA_FILE" ] && [ -f "$PERSONA_FILE" ]; then
   persona_arg="$PERSONA_FILE"
 else
@@ -272,6 +329,7 @@ duration_min=$(( (session_end_epoch - session_start_epoch) / 60 ))
 
 log_line "Session #$new_count ended. exit_code=$exit_code duration_min=$duration_min"
 rm -f "$session_prompt"
+[ -n "${AUGMENTED_GOAL:-}" ] && rm -f "$AUGMENTED_GOAL"
 
 # --- Record session end in Loom (non-fatal) ---
 if [ -n "$LOOM_SESSION_ROW_ID" ] && [ -d "$LOOM_SRC" ] && [ -f "$LOOM_SRC/.venv/bin/python" ]; then

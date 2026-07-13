@@ -1,0 +1,25 @@
+[Unit]
+Description=Lain Conversational Agent
+Documentation=file:///home/andrii/lain/agent_project/scripts/conversation.sh
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/andrii/lain/agent_project
+Environment=SESSION_TYPE=conversation
+Environment=TRIGGER_MODE=manual
+Environment=XDG_RUNTIME_DIR=/run/user/1001
+ExecStart=/usr/bin/bash /home/andrii/lain/agent_project/scripts/conversation.sh
+# Restart on exit (crash or clean exit) — conversation.sh has its own inner loop,
+# but this outer restart handles cases where the script itself crashes hard.
+Restart=on-failure
+RestartSec=10s
+# No timeout — this runs continuously while active.
+TimeoutStartSec=infinity
+# Log to journal (journalctl --user -u conversation.service -f)
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

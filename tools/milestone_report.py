@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+"""
+milestone_report.py — Goal 9, Task 65
+
+Generates state/reports/milestone_report.md: a summary of major milestones
+reached across all goals, for the conversational layer to surface on demand.
+
+Usage:
+  python3 tools/milestone_report.py [--output PATH] [--send]
+
+  --output PATH  Output path (default: state/reports/milestone_report.md)
+  --send         Print to stdout (for Telegram piping) instead of file
+
+Reads:
+  Loom DB (goals + task counts)
+  memory/progress.md (milestone sections)
+  logs/session_log.csv (session counts by type)
+"""
+
+import argparse
+import csv
+import os
+import re
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+
+PROJECT_DIR = Path(os.environ.get("PROJECT_DIR", Path(__file__).parent.parent))
+LOOM_PY = Path.home() / "lain" / "loom" / ".venv" / "bin" / "python"
+LOOM_DB = Path.home() / ".local" / "share" / "loom" / "loom.db"
+
+
+def get_loom_goals() -> list[dict]:
+    """Query Loom DB for all goals."""
+    try:
+        import sqlite3
+        conn = sqlite3.connect(str(LOOM_DB))
+        conn.row_factory = sqlite3.Row
+        cur = conn.execute("SELECT id, name, status, priority FROM goals ORDER BY priority DESC, id")
+        goals = [dict(r) for r in cur.fetchall()]
+        conn.close()
+        return goals
+    except Exception:
+        return []
+
+
+def get_task_counts() -> dict[int, dict]:
+    """Get done/total task counts per goal."""
+    try:
+        import sqlite3
+        conn = sqlite3.connect(str(LOOM_DB))
+        cur = conn.execute(
+            "SELECT goal_id, status, COUNT(*) as n FROM tasks WHERE goal_id IS NOT NULL GROUP BY goal_id, status"
+        )
+        rows = cur.fetchall()
+        conn.close()
+        counts: dict[int, dict] = {}
+        for row in rows:
+            gid, status, n = row
+            if gid not in counts:
+                counts[gid] = {"done": 0, "total": 0}
+            counts[gid]["total"] += n
+            if status in ("done", "completed"):
+                counts[gid]["done"] += n
+        return counts
+    except Exception:
+        return {}
+
+
+def extract_milestones_from_progress(progress_path: Path) -> list[str]:
+    """Extract session milestone lines from progress.md (Session headings)."""
+    if not progress_path.exists():
+        return []
+    text = progress_path.read_text()
+    milestones = []
+    for line in text.splitlines():
+        # Lines like: ## Session manual_X — description
+        if re.match(r"^## Session ", line):
+            milestones.append(line[3:].strip())
+    return milestones[-10:]  # Last 10 milestones
+
+
+def count_sessions(csv_path: Path) -> dict:
+    """Count sessions by type from CSV."""
+    if not csv_path.exists():
+        return {}
+    counts: dict[str, int] = {}
+    with open(csv_path, newline="") as f:
+        reader = csv.reader(f)
+        for row in reader:
+            if len(row) >= 2 and row[1]:
+                stype = row[1]
+                counts[stype] = counts.get(stype, 0) + 1
+    return counts
+
+
+def status_icon(status: str) -> str:
+    return {
+        "completed": "✓",
+        "active": "▶",
+        "in_progress": "▶",
+        "desire": "○",
+        "review": "◎",
+        "blocked": "✗",
+        "abandoned": "—",
+    }.get(status, "?")
+
+
+def generate_report() -> str:
+    now = datetime.now().strftime("%Y-%m-%d %H:%M CEST")
+    goals = get_loom_goals()
+    task_counts = get_task_counts()
+    milestones = extract_milestones_from_progress(PROJECT_DIR / "memory" / "progress.md")
+    session_counts = count_sessions(PROJECT_DIR / "logs" / "session_log.csv")
+    total_sessions = sum(session_counts.values())
+
+    lines = [
+        "# Milestone Report — @Lain",
+        f"Generated: {now}",
+        "",
+        "---",
+        "",
+        "## Goals",
+        "",
+    ]
+
+    if goals:
+        lines.append("| # | Goal | Status | Tasks |")
+        lines.append("|---|------|--------|-------|")
+        for g in goals:
+            gid = g["id"]
+            tc = task_counts.get(gid, {})
+            done = tc.get("done", 0)
+            total = tc.get("total", 0)
+            task_str = f"{done}/{total}" if total else "—"
+            icon = status_icon(g["status"])
+            lines.append(f"| {gid} | {g['name']} | {icon} {g['status']} | {task_str} |")
+    else:
+        lines.append("*(could not read Loom DB)*")
+
+    lines += [
+        "",
+        "---",
+        "",
+        "## Session stats",
+        "",
+        f"Total sessions logged: **{total_sessions}**",
+        "",
+    ]
+
+    if session_counts:
+        for stype, count in sorted(session_counts.items(), key=lambda x: -x[1]):
+            lines.append(f"- {stype}: {count}")
+
+    lines += [
+        "",
+        "---",
+        "",
+        "## Recent session milestones",
+        "",
+    ]
+
+    for m in milestones:
+        lines.append(f"- {m}")
+
+    lines += [
+        "",
+        "---",
+        "",
+        "*This report is generated by tools/milestone_report.py — Goal 9, Task 65.*",
+        "*Source: Loom DB + memory/progress.md + logs/session_log.csv.*",
+    ]
+
+    return "\n".join(lines)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Generate milestone report")
+    parser.add_argument("--output", type=str, default=None)
+    parser.add_argument("--send", action="store_true", help="Print to stdout")
+    args = parser.parse_args()
+
+    report = generate_report()
+
+    if args.send:
+        print(report)
+    else:
+        output_path = (
+            Path(args.output)
+            if args.output
+            else PROJECT_DIR / "state" / "reports" / "milestone_report.md"
+        )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(report)
+        print(f"Report written to {output_path}")
+
+
+if __name__ == "__main__":
+    main()
