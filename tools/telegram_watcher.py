@@ -15,7 +15,8 @@ Usage:
 State files:
     state/conversation/last_update_id.txt — persists update_id across calls
 
-Token source: ~/.claude/.env (TELEGRAM_BOT_TOKEN, TELEGRAM_ALLOWED_USERS)
+Token source: TELEGRAM_BOT_TOKEN_FILE env var → TELEGRAM_BOT_TOKEN env var →
+    identity/agent.env → ~/.claude/.env (in that priority order)
 Exit codes:
     0 — new message received, JSON printed to stdout
     1 — interrupted or timeout (caller should retry)
@@ -34,7 +35,7 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = SCRIPT_DIR.parent
-ENV_FILE = Path.home() / ".claude" / ".env"
+_FALLBACK_ENV_FILE = Path.home() / ".claude" / ".env"
 LAST_UPDATE_FILE = PROJECT_DIR / "state" / "conversation" / "last_update_id.txt"
 WATCHER_PID_FILE = PROJECT_DIR / "state" / "conversation" / "watcher.pid"
 OUTBOX_FILE = PROJECT_DIR / "state" / "conversation" / "outbox.json"
@@ -48,16 +49,67 @@ LONG_POLL_TIMEOUT = 25
 RETRY_DELAY = 3
 
 
+def _parse_env_file(path: Path) -> dict[str, str]:
+    """Parse a key=value env file, skipping comments."""
+    result: dict[str, str] = {}
+    if not path.exists():
+        return result
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" in line:
+            k, _, v = line.partition("=")
+            result[k.strip()] = v.strip()
+    return result
+
+
 def load_env() -> tuple[str, str]:
-    """Load token and allowed chat ID from .env file."""
+    """Load token and allowed chat ID.
+
+    Priority order for token:
+      1. TELEGRAM_BOT_TOKEN_FILE env var → read token from that file
+      2. TELEGRAM_BOT_TOKEN env var (direct)
+      3. PROJECT_DIR/identity/agent.env  → TELEGRAM_BOT_TOKEN
+      4. ~/.claude/.env                  → TELEGRAM_BOT_TOKEN
+
+    Priority order for chat_id:
+      1. TELEGRAM_CHAT_ID env var (direct)
+      2. PROJECT_DIR/identity/agent.env  → TELEGRAM_CHAT_ID or TELEGRAM_ALLOWED_USERS
+      3. ~/.claude/.env                  → TELEGRAM_ALLOWED_USERS
+    """
     token = ""
     chat_id = ""
-    if ENV_FILE.exists():
-        for line in ENV_FILE.read_text().splitlines():
-            if line.startswith("TELEGRAM_BOT_TOKEN="):
-                token = line.split("=", 1)[1].strip()
-            elif line.startswith("TELEGRAM_ALLOWED_USERS="):
-                chat_id = line.split("=", 1)[1].strip()
+
+    # 1. Token file override (agent_config.env sets TELEGRAM_BOT_TOKEN_FILE)
+    token_file = os.environ.get("TELEGRAM_BOT_TOKEN_FILE", "")
+    if token_file:
+        try:
+            token = Path(token_file).read_text().strip()
+        except OSError:
+            pass
+
+    # 2. Direct env vars
+    if not token:
+        token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
+
+    # 3. identity/agent.env (agent-specific credentials, present in orchestrator etc.)
+    if not token or not chat_id:
+        agent_env = _parse_env_file(PROJECT_DIR / "identity" / "agent.env")
+        if not token:
+            token = agent_env.get("TELEGRAM_BOT_TOKEN", "")
+        if not chat_id:
+            chat_id = agent_env.get("TELEGRAM_CHAT_ID", "") or agent_env.get("TELEGRAM_ALLOWED_USERS", "")
+
+    # 4. Fallback: ~/.claude/.env (Lain's default credentials)
+    if not token or not chat_id:
+        fallback = _parse_env_file(_FALLBACK_ENV_FILE)
+        if not token:
+            token = fallback.get("TELEGRAM_BOT_TOKEN", "")
+        if not chat_id:
+            chat_id = fallback.get("TELEGRAM_ALLOWED_USERS", "")
+
     return token, chat_id
 
 
