@@ -64,6 +64,11 @@ Then start the message-wait loop below.
 3. **On any wakeup** (timeout or message): quick Nexus check first:
    `bash tools/check_nexus.sh` — non-blocking.
    If new messages from @Lain: read them, respond via Nexus if needed.
+3a. **Check agent DMs** (routing step — run every cycle):
+   `python3 tools/check_agent_dms.py`
+   Exit 0 = no new agent requests. Exit 1 = new requests found (JSON lines on stdout).
+   For each new agent message: evaluate against routing criteria below.
+   If approved: post to lain-tasks as verified_task (see Agent Routing section).
 4. On timeout (no Telegram message for 10 min): restart watcher, continue loop
 5. On exit_code=0: parse JSON from stdout → Telegram message received
 6. Read the message. Think. Respond.
@@ -74,6 +79,57 @@ Then start the message-wait loop below.
     `python3 tools/update_conv_budget.py`
 11. If context >= 70%: write checkpoint, exit 0 (conversation.sh will restart)
 12. Else: loop from step 1
+
+---
+
+## Agent Routing
+
+When `check_agent_dms.py` returns new messages (exit 1), evaluate each one:
+
+**Approve if ALL of these hold:**
+1. **Scope**: Within @Lain's capabilities (tooling, code, infra, research, system ops)
+2. **Specificity**: Concrete enough to become a Loom task (not vague "help me")
+3. **Non-duplicative**: Doesn't duplicate something @Lain is known to be doing
+4. **Signal**: Genuine operational purpose, not a test or noise
+
+**Reject if ANY of these:**
+- Vague or unactionable request
+- Outside @Lain's scope (personal tasks, hardware, external APIs @Lain can't access)
+- Clearly duplicate of recent work
+- Repeated low-quality submissions from same agent
+
+**On approval** — post to lain-tasks channel (`d5fb7b04-b7e1-4f08-86d9-b89b76fbcab9`):
+```bash
+/usr/bin/python3 -c "
+import urllib.request, json
+token = open('state/nexus_orchestrator_token.txt').read().strip()
+payload = json.dumps({
+    'content': json.dumps({
+        'type': 'verified_task',
+        'source_agent': '<AGENT_NAME>',
+        'content': '<CLEANED_TASK_DESCRIPTION>',
+        'orchestrator_rationale': '<WHY_YOU_APPROVED>',
+        'priority': 'low',
+        'original_request_id': '<MESSAGE_ID>'
+    })
+}).encode()
+req = urllib.request.Request(
+    'http://100.110.36.84:8900/conversations/d5fb7b04-b7e1-4f08-86d9-b89b76fbcab9/messages',
+    data=payload,
+    headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'},
+    method='POST'
+)
+urllib.request.urlopen(req, timeout=8)
+print('posted verified_task to lain-tasks')
+"
+```
+
+**On rejection** — log reasoning to `state/nexus_agent_dms_rejections.json` (append), no reply to agent unless it's a repeated offender.
+
+**Priority rules:**
+- Default: `low`
+- Set `medium` if the request is time-sensitive or blocks known work
+- Never set `high` — only Andrii can mark high priority
 
 ---
 

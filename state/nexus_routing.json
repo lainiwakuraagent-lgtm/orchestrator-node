@@ -1,0 +1,10 @@
+{
+  "_comment": "Nexus conversation IDs for orchestrator routing. Updated 2026-07-13.",
+  "agent_dm_conversations": {
+    "asuka": "9c94bf4d-660e-4fb6-8b04-b7d6f246fc38"
+  },
+  "output_channels": {
+    "lain_tasks": "d5fb7b04-b7e1-4f08-86d9-b89b76fbcab9",
+    "quorum_ops": "e1f8dee0-171a-4312-83d9-1de49632f3bd"
+  }
+}
