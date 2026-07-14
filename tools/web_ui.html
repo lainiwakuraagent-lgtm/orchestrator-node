@@ -1751,12 +1751,13 @@ document.querySelectorAll('.tab').forEach(tab => {
 
 // ── Session list ──────────────────────────────────────────────────────────────
 const TYPE_COLORS = {
-  execution:    '#4caf82',
-  planning:     '#7b6ef6',
-  free:         '#e6a817',
-  emergency:    '#e05560',
-  maintenance:  '#4fc3f7',
-  unknown:      '#666680',
+  execution:      'var(--s-execution)',
+  planning:       'var(--s-planning)',
+  maintenance:    'var(--s-maintenance)',
+  philosophizing: 'var(--s-philosophizing)',
+  free:           'var(--s-free)',
+  emergency:      'var(--s-emergency)',
+  unknown:        'var(--s-sleeping)',
 };
 
 function sessionShortName(key) {
@@ -2467,15 +2468,6 @@ document.querySelector('.tab[data-tab="schedule"]').addEventListener('click', ()
 }, { once: true });
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
-const TYPE_COLORS = {
-  execution:      'var(--s-execution)',
-  planning:       'var(--s-planning)',
-  maintenance:    'var(--s-maintenance)',
-  philosophizing: 'var(--s-philosophizing)',
-  free:           'var(--s-free)',
-  emergency:      'var(--s-emergency)',
-  unknown:        'var(--s-sleeping)',
-};
 
 async function loadAnalytics() {
   let costs = [];
