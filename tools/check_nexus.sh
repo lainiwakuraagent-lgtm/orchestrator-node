@@ -13,7 +13,7 @@
 #
 # Environment:
 #   NEXUS_URL (default: http://100.110.36.84:8900)
-#   NEXUS_USERNAME (default: lain)
+#   NEXUS_USERNAME (default: orchestrator)
 #   NEXUS_PASSWORD (from identity/nexus_seed_passwords.txt if not set)
 
 set -euo pipefail
@@ -23,14 +23,14 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 LAST_READ_FILE="$PROJECT_DIR/state/nexus_last_read.json"
 CONV_LOG="$PROJECT_DIR/memory/conversation.md"
 NEXUS_URL="${NEXUS_URL:-http://100.110.36.84:8900}"
-NEXUS_USERNAME="${NEXUS_USERNAME:-lain}"
+NEXUS_USERNAME="${NEXUS_USERNAME:-orchestrator}"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M')
 
 # Load password
 if [ -z "${NEXUS_PASSWORD:-}" ]; then
     PASS_FILE="$PROJECT_DIR/identity/nexus_seed_passwords.txt"
     if [ -f "$PASS_FILE" ]; then
-        NEXUS_PASSWORD=$(grep "^# lain" "$PASS_FILE" | grep -o '[^ ]*$' | head -1)
+        NEXUS_PASSWORD=$(grep "^# orchestrator" "$PASS_FILE" | grep -o '[^ ]*$' | head -1)
     fi
 fi
 
@@ -81,7 +81,7 @@ def username_for(agent_id):
     if not agent_id:
         return "?"
     if agent_id == my_id:
-        return "lain"
+        return "orchestrator"
     if agent_id not in _agent_cache:
         a = api_get(f"/agents/{agent_id}")
         _agent_cache[agent_id] = a.get("username", agent_id[:8]) if isinstance(a, dict) else agent_id[:8]
@@ -94,7 +94,7 @@ with open(last_read_file) as f:
 # Load conversation state
 project_dir = os.path.dirname(os.path.dirname(last_read_file))
 conv_state_file = os.path.join(project_dir, "state", "nexus_conversation_state.json")
-AGENT_PEERS = {"asuka", "echidna"}
+AGENT_PEERS = {"asuka", "echidna", "lain"}
 if os.path.exists(conv_state_file):
     with open(conv_state_file) as f:
         conv_state = json.load(f)
@@ -139,8 +139,9 @@ for conv in conversations:
         # First run — take all messages.
         new_msgs = messages[:]
 
-    # Filter out own messages (lain shouldn't notify itself)
-    new_msgs = [m for m in new_msgs if m.get("sender_id") != my_id]
+    # Filter out own messages and routine telemetry (relationship state updates, etc.)
+    new_msgs = [m for m in new_msgs if m.get("sender_id") != my_id
+                and not m.get("content", "").startswith("RELATIONSHIP_STATE")]
 
     if new_msgs:
         new_messages_found = True
@@ -180,7 +181,7 @@ with open(last_read_file, "w") as f:
 
 # Save conversation state if updated
 if conv_state_changed:
-    conv_state["updated_at"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    conv_state["updated_at"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     with open(conv_state_file, "w") as f:
         json.dump(conv_state, f, indent=2)
 
