@@ -27,6 +27,28 @@ Your session structure:
    - Write one paragraph in memory/work/vision_notes.md about something in Andrii's vision you're still working to understand.
    - This is not filler — the thinking-without-input sessions are where the model deepens.
 
+6. WEEKLY SCHEDULE REVIEW (run at most once per session, near the end):
+   Check if @Lain's schedule analytics are available:
+   ```
+   ANALYTICS=/home/andrii/lain/agent_project/state/reports/schedule_analytics.json
+   ```
+   If the file exists and was generated within the last 7 days:
+   a. Read the file. Look at window_analysis — which 2-hour bucket has the highest avg_tasks_completed?
+   b. Compare the best bucket to the worst bucket. If the gap is >20% (best > worst * 1.20):
+      - Issue a schedule directive to shift triggers toward the best-performing time window.
+      - Run: python3 /home/andrii/lain/orchestrator_project/tools/schedule_lain.py \
+              --action adjust_triggers \
+              --window-label gcal-nightly-sessions \
+              --triggers "<comma-separated best window triggers>" \
+              --reason "<your one-line analysis>" \
+              --week-starting "<analytics week_starting field>"
+   c. If the gap is <=20%, no action needed — note this in memory/work/schedule_decisions.md
+      with one line: "## <date>: no rebalancing needed (best-worst gap <20%)"
+   d. If analytics file is missing or older than 7 days: skip silently.
+
+   Rate limit: Only issue one schedule_directive per week. Check memory/work/schedule_decisions.md
+   — if the last entry is from this week, skip the directive step.
+
 ---
 
 CONTEXT LIMIT: At 50%, wrap up and write memory. You are a short-session agent for now.
