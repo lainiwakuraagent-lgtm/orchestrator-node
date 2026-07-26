@@ -12,20 +12,16 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="${PROJECT_DIR:-$(dirname "$SCRIPT_DIR")}"
+PROJECT_DIR="${PROJECT_DIR:-/home/andrii/lain/orchestrator_project}"
 STATE_DIR="$PROJECT_DIR/state"
 LOG_DIR="$PROJECT_DIR/logs"
-# Prefer agent-specific credentials (identity/agent.env), fall back to ~/.claude/.env
-_AGENT_ENV="$PROJECT_DIR/identity/agent.env"
-ENV_FILE="$HOME/.claude/.env"
-if [ -f "$_AGENT_ENV" ]; then ENV_FILE="$_AGENT_ENV"; fi
+AGENT_ENV_FILE="$PROJECT_DIR/identity/agent.env"
 CONV_DIR="$STATE_DIR/conversation"
 PROMPT_FILE="$PROJECT_DIR/prompts/conversation.md"
 PERSONA_FILE="$PROJECT_DIR/prompts/persona.txt"
 LOCK_FILE="$STATE_DIR/conversation.lock"
 WATCHER_PID_FILE="$CONV_DIR/watcher.pid"
-AGENT_NAME="${AGENT_NAME:-lain}"
+AGENT_NAME="${AGENT_NAME:-orchestrator}"
 NEXUS_URL="${NEXUS_URL:-http://100.110.36.84:8900}"
 NEXUS_PASS_FILE="$PROJECT_DIR/identity/nexus_seed_passwords.txt"
 
@@ -35,7 +31,8 @@ timestamp() { date '+%Y-%m-%d %H:%M:%S %Z'; }
 log_line() { echo "[$(timestamp)] $*" | tee -a "$LOG_DIR/wake.log"; }
 
 # --- Load Telegram credentials ---
-TOKEN=$(grep 'TELEGRAM_BOT_TOKEN' "$ENV_FILE" 2>/dev/null | cut -d= -f2 || true)
+# Read token from orchestrator's own identity/agent.env (not Lain's ~/.claude/.env)
+TOKEN=$(grep '^TELEGRAM_BOT_TOKEN=' "$AGENT_ENV_FILE" 2>/dev/null | cut -d= -f2 || true)
 WEBHOOK_URL_FILE="$CONV_DIR/saved_webhook_url.txt"
 
 # --- Webhook management ---
@@ -70,6 +67,7 @@ restore_webhook() {
 # On any exit: restore webhook and remove lock
 cleanup() {
     log_line "CONV: exiting — restoring webhook and releasing lock."
+    kill_stale_watcher 2>/dev/null || true
     restore_webhook
     rm -f "$LOCK_FILE"
 }
@@ -94,6 +92,8 @@ delete_webhook
 export SESSION_TYPE="conversation"
 export CURRENT_SESSION_TYPE="conversation"
 export TRIGGER_MODE="manual"
+# Ensure telegram_watcher.py uses the orchestrator's own token (highest priority source)
+export TELEGRAM_BOT_TOKEN_FILE="$PROJECT_DIR/identity/telegram_token.txt"
 
 log_line "CONV: Starting conversation session loop (PID $$)."
 
@@ -136,11 +136,16 @@ kill_stale_watcher() {
     fi
 }
 
+# Refresh JWT at script startup (before first loop — may be stale if service just started)
+refresh_nexus_jwt
+
 # --- Auto-restart loop ---
 RESTART_COUNT=0
 while true; do
     RESTART_COUNT=$((RESTART_COUNT + 1))
     kill_stale_watcher
+    # Clear stale idle-close signal from previous session
+    rm -f "$CONV_DIR/reset_signal.txt"
     refresh_nexus_jwt
     log_line "CONV: Session start #$RESTART_COUNT"
 
@@ -161,6 +166,10 @@ while true; do
         cp "$PROMPT_FILE" "$SESSION_PROMPT"
     fi
 
+    # Start background JWT refresher — token expires in ~1h, refresh every 45min
+    ( while true; do sleep 2700; refresh_nexus_jwt; done ) &
+    JWT_REFRESH_PID=$!
+
     # Launch Claude Code in conversation mode
     claude \
         --model "$MODEL" \
@@ -168,11 +177,36 @@ while true; do
         -p "$(cat "$SESSION_PROMPT")" \
         > "$SESSION_OUT" 2> "$SESSION_ERR" || true
 
+    # Stop background refresher now that Claude has exited
+    kill "$JWT_REFRESH_PID" 2>/dev/null || true
+    wait "$JWT_REFRESH_PID" 2>/dev/null || true
+
     rm -f "$SESSION_PROMPT"
 
     EXIT_CODE=$?
-    log_line "CONV: Session #$RESTART_COUNT exited (code=$EXIT_CODE). Restarting in 3s."
 
-    # Brief pause between restarts to avoid hammering on persistent errors
-    sleep 3
+    # Read exit reason (written by agent before exiting)
+    EXIT_REASON_FILE="$CONV_DIR/exit_reason.txt"
+    EXIT_REASON="unknown"
+    if [ -f "$EXIT_REASON_FILE" ]; then
+        EXIT_REASON=$(cat "$EXIT_REASON_FILE")
+        rm -f "$EXIT_REASON_FILE"
+    fi
+
+    log_line "CONV: Session #$RESTART_COUNT exited (code=$EXIT_CODE, reason=$EXIT_REASON)."
+
+    if [ "$EXIT_REASON" = "idle_close" ]; then
+        log_line "CONV: $EXIT_REASON — not restarting. Service will stop."
+        break
+    fi
+
+    # Restart on reset/new/context_full/maintenance_close; stop on crashes/unknown.
+    # maintenance_close = 4AM context reset, layer stays up (same as agent_project).
+    if [ "$EXIT_REASON" = "reset" ] || [ "$EXIT_REASON" = "new" ] || [ "$EXIT_REASON" = "context_full" ] || [ "$EXIT_REASON" = "maintenance_close" ]; then
+        log_line "CONV: $EXIT_REASON — restarting in 3s."
+        sleep 3
+    else
+        log_line "CONV: Exit reason '$EXIT_REASON' — not restarting. Service will stop."
+        break
+    fi
 done
