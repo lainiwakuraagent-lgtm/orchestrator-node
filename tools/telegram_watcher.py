@@ -147,6 +147,16 @@ def write_pid() -> None:
     if WATCHER_PID_FILE.exists():
         try:
             old_pid = int(WATCHER_PID_FILE.read_text().strip())
+            # Also kill the bash wrapper (parent) — it lingers when python3 is in a long-poll.
+            try:
+                ppid_out = subprocess.check_output(
+                    ["ps", "-o", "ppid=", "-p", str(old_pid)], stderr=subprocess.DEVNULL
+                )
+                wrapper_pid = int(ppid_out.strip())
+                if wrapper_pid > 1:
+                    os.kill(wrapper_pid, signal.SIGTERM)
+            except Exception:
+                pass
             os.kill(old_pid, signal.SIGTERM)
             time.sleep(0.5)  # let it die before we take over
         except (ValueError, ProcessLookupError, PermissionError):

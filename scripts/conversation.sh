@@ -127,8 +127,16 @@ kill_stale_watcher() {
         local watcher_pid
         watcher_pid=$(cat "$WATCHER_PID_FILE" 2>/dev/null || echo "")
         if [ -n "$watcher_pid" ] && kill -0 "$watcher_pid" 2>/dev/null; then
+            # Also kill the bash wrapper spawned by the claude tool — it lingers when
+            # python3 is blocked in a getUpdates long-poll and SIGTERM is delayed.
+            local wrapper_pid
+            wrapper_pid=$(ps -o ppid= -p "$watcher_pid" 2>/dev/null | tr -d '[:space:]' || echo "")
             log_line "CONV: killing stale watcher (PID $watcher_pid) before restart."
             kill "$watcher_pid" 2>/dev/null || true
+            if [ -n "$wrapper_pid" ] && [ "$wrapper_pid" != "1" ] && kill -0 "$wrapper_pid" 2>/dev/null; then
+                log_line "CONV: killing watcher bash wrapper (PID $wrapper_pid)."
+                kill "$wrapper_pid" 2>/dev/null || true
+            fi
             # Give it a moment to release the getUpdates connection
             sleep 2
         fi
