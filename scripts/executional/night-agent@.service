@@ -12,6 +12,10 @@ ExecStart=/usr/bin/bash %h/lain/%i/scripts/executional/wake.sh \
   %h/lain/%i/prompts/persona.txt
 # Hard ceiling so a stuck session can never run past the window.
 TimeoutStartSec=7h
+# Resource limits — conservative defaults for multi-agent coexistence
+CPUQuota=40%
+MemoryMax=512M
+IOWeight=100
 
 [Install]
 WantedBy=default.target

@@ -17,6 +17,9 @@ Restart=on-failure
 RestartSec=10s
 # No timeout — this runs continuously while active.
 TimeoutStartSec=infinity
+# Resource limits — conservative defaults for multi-agent coexistence
+CPUQuota=20%
+MemoryMax=256M
 # Log to journal (journalctl --user -u conversation@<instance>.service -f)
 StandardOutput=journal
 StandardError=journal
