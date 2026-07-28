@@ -1,0 +1,14 @@
+[Unit]
+Description=Emergency Agent Timer — %i — fires every 60 minutes during showcase/daytime mode
+
+[Timer]
+# Fire every 60 minutes from the moment the timer is started.
+# OnActiveSec: first fire 1 minute after timer starts (gives human time to see the activation).
+# OnUnitActiveSec: subsequent fires every 60 minutes after the last session ends.
+OnActiveSec=1min
+OnUnitActiveSec=60min
+# Do not fire missed events if the machine was asleep.
+Persistent=false
+
+[Install]
+WantedBy=timers.target

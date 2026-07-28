@@ -1,0 +1,34 @@
+{"items": [
+  {
+    "source": "self",
+    "from": "orchestrator-interactive",
+    "content": "Dual-session Telegram polling conflict: when a manual Claude Code session is launched while orchestrator-conversation.service is active, both attempt to poll Telegram and get 409 Conflict. Need a coordination mechanism — e.g., manual session should either (1) pause the service while active, or (2) detect the conflict and route through the service's outbox instead of direct polling, or (3) the service should check trigger_mode.txt and yield to manual sessions.",
+    "timestamp": 1783976000,
+    "type": "idea",
+    "processed": false
+  },
+  {
+    "source": "orchestrator-session",
+    "from": "self",
+    "content": "Lain's kill_stale_watcher function in agent_project/scripts/conversation.sh runs pgrep -f 'telegram_watcher.py' machine-wide and kills ALL matches — including the orchestrator's watcher. Observed: my watcher gets killed every time Lain's conversation session restarts (~every 3-4 min). Need: either (1) scope Lain's pkill fallback to only kill processes under her own project dir, or (2) use different process names, or (3) orchestrate watcher lifecycle centrally. This is blocking stable orchestrator conversation sessions when Lain is also running.",
+    "timestamp": 1785218400,
+    "type": "task_request",
+    "processed": false
+  },
+  {
+    "source": "conversation",
+    "from": "andrii",
+    "content": "Verify prompts/persona.txt is being loaded at session start. No content changes needed — handled directly.",
+    "timestamp": 1784019600,
+    "type": "task_request",
+    "processed": false
+  },
+  {
+    "source": "conversation",
+    "from": "andrii",
+    "content": "OVERNIGHT PHILOSOPHY SESSION TASKS:\n1. Lain-comms SOPs — design communication procedures and talking strategies for discussing ideas with agents (Lain and future agents). Different patterns, turn structures, escalation protocols. Output by morning.\n2. Team composition analysis — what agents the team needs to achieve self-sustainability. Map possible paths given current constraints (limited budget, limited tooling, 1-2 week isolation period before I can start experimenting with Lain).\n3. Testing loop design — Andrii wants a workflow where he and I both analyze the same Lain output, then compare assessments. Think through how this could work at my abstraction level.\n4. Open problem to flag back: Andrii has no structured framework for extracting his vision/standards to me. Conversational absorption is partial. This is a core gap worth naming.\n5. Optional: diagram sketches for communication SOPs if session supports it.",
+    "timestamp": 1784056200,
+    "type": "task_request",
+    "processed": false
+  }
+]}

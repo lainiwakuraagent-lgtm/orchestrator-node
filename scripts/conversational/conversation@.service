@@ -1,0 +1,25 @@
+[Unit]
+Description=Conversational Agent — %i
+Documentation=file://%h/lain/%i/scripts/conversational/conversation.sh
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/lain/%i
+Environment=SESSION_TYPE=conversation
+Environment=TRIGGER_MODE=manual
+Environment=XDG_RUNTIME_DIR=%t
+ExecStart=/usr/bin/bash %h/lain/%i/scripts/conversational/conversation.sh
+# Restart on exit (crash or clean exit) — conversation.sh has its own inner loop,
+# but this outer restart handles cases where the script itself crashes hard.
+Restart=on-failure
+RestartSec=10s
+# No timeout — this runs continuously while active.
+TimeoutStartSec=infinity
+# Log to journal (journalctl --user -u conversation@<instance>.service -f)
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

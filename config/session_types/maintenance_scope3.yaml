@@ -1,0 +1,26 @@
+scope_id: 3
+scope_name: "Infrastructure & Integrations"
+scope_slug: infra
+
+context_files:
+  - memory/latest_summary.md
+  - memory/learnings_digest.md
+  - logs/system_issues.md
+  - logs/maintenance_decisions.md
+  - state/behavioral_context.txt
+
+focus_hint: >
+  Infrastructure & Integrations maintenance. Check which systemd units this
+  node actually has installed and active (`systemctl --user list-timers`,
+  `systemctl --user list-units '*.service'`) -- don't assume from memory which
+  ones exist. Which units are present varies by node: not every node has
+  emergency mode ever enabled, or the conversation layer active. Confirm
+  whatever is installed isn't in a failed state.
+  If credential-based integrations are configured (GitHub PAT, other API
+  keys), verify they're still valid with a real call before assuming they are.
+  If a communication channel is configured (Telegram by default), verify it's
+  healthy -- no webhook conflicts, watcher process responding.
+  Audit wake.sh gate state: is state/emergency_mode.active stale (left on from
+  a session that forgot to disable it)?
+  Check logs/wake.log size against its rotation threshold (1MB). Goal: confirm
+  the operational layer is actually running correctly, not just assumed to be.

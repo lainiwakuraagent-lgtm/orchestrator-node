@@ -1,0 +1,18 @@
+[Unit]
+Description=Emergency Agent Session (Daytime / Showcase Mode) — %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/lain/%i
+Environment=PATH=%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=TRIGGER_MODE=emergency
+ExecStart=/usr/bin/bash %h/lain/%i/scripts/executional/wake.sh \
+  %h/lain/%i/prompts/persona.txt
+# Cap individual sessions at 30 minutes -- emergency mode runs frequently,
+# so short focused sessions are better than one long one.
+TimeoutStartSec=30min
+
+[Install]
+WantedBy=default.target

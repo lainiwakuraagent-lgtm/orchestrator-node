@@ -1,0 +1,20 @@
+[Unit]
+Description=Lain Nexus Channel Watcher
+Documentation=file:///home/andrii/lain/agent_project/tools/nexus_watcher.py
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/andrii/lain/agent_project
+Environment=XDG_RUNTIME_DIR=/run/user/1001
+ExecStart=/usr/bin/python3 /home/andrii/lain/agent_project/tools/nexus_watcher.py
+# Restart on crash — never exit cleanly unless SIGTERM.
+Restart=on-failure
+RestartSec=30s
+TimeoutStartSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

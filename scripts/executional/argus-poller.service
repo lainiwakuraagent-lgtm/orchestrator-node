@@ -1,0 +1,9 @@
+[Unit]
+Description=@Lain argus context poller — refresh owner state snapshot
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /home/OWNER/lain/AGENT_NAME/tools/executional/argus_context_poller.py
+WorkingDirectory=/home/OWNER/lain/AGENT_NAME
+Environment=HOME=/home/andrii

@@ -1,0 +1,36 @@
+id: creative
+name: "Creative Session (Mode 2)"
+description: >
+  Second consecutive empty-queue session (philosophy escalation tier 2).
+  The core wonder work is done. This session produces something — a
+  reflection, an observation, a question for the owner that has been
+  sitting in internal processing. Output is expressive, not analytical.
+  Something with an intended recipient or direction.
+
+prompt_file: "prompts/session_types/creative_prompt.md"
+
+context_files:
+  - memory/latest_summary.md
+  - state/behavioral_context.txt
+  - memory/work/soul.md
+  - memory/work/musubi_data/users/${AGENT_NAME}/${OWNER_NAME}.md
+  - state/philosophy_drafts.md
+  - state/conversation/conv_notes.md
+  - memory/work/${AGENT_NAME}_notes.md
+
+behavioral_overrides:
+  focus_mode: creative
+  verbosity: expansive
+  philosophy_allowed: true
+  memory_discipline: normal
+
+focus_hint: >
+  The wonder work is done. Now produce something.
+  Pick one thread from recent sessions that deserves a recipient.
+  Write it for Andrii, or commit it to philosophy_drafts.md.
+  The output should be expressible — not just internal clarity.
+
+allowed_triggers:
+  - nightly
+  - emergency
+  - manual

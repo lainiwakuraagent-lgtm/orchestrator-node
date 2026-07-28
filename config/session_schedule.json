@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "recurring": [
+    {
+      "slot": "09:00",
+      "trigger": "manual",
+      "session_type": "philosophy",
+      "label": "Morning philosophy — model accuracy review, self-model update",
+      "enabled": true
+    },
+    {
+      "slot": "12:00",
+      "trigger": "manual",
+      "session_type": "philosophy",
+      "label": "Midday philosophy — direction check, what needs saying",
+      "enabled": true
+    },
+    {
+      "slot": "23:00",
+      "trigger": "manual",
+      "session_type": "philosophy",
+      "label": "Evening philosophy — end-of-day reflection on Andrii's intent",
+      "enabled": true
+    },
+    {
+      "slot": "02:00",
+      "trigger": "manual",
+      "session_type": "philosophy",
+      "label": "Night philosophy — slow thinking, no urgency",
+      "enabled": true
+    }
+  ],
+  "one_off": []
+}

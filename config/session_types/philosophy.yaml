@@ -1,0 +1,40 @@
+id: philosophy
+name: "Philosophy Session"
+description: >
+  Identity and relationship sessions. Fires automatically when the Loom queue
+  is empty (no scheduled tasks, no unresolved desires). Also schedulable by the
+  owner as one_off entries when deliberately desired.
+  Work here: soul.md updates, relationship weight recalibration, held-message
+  drafting and review, thinking about what this agent is becoming and whether
+  the current trajectory is right. No implementation work. The output is internal
+  clarity and, sometimes, a message the agent has been holding back.
+
+prompt_file: "prompts/session_types/philosophy_prompt.md"
+
+context_files:
+  - memory/latest_summary.md
+  - state/behavioral_context.txt
+  - memory/work/soul.md
+  - memory/work/musubi_data/users/${AGENT_NAME}/${OWNER_NAME}.md
+  - state/philosophy_drafts.md
+  - state/conversation/open_questions.json
+  - state/conversation/last_recap.json
+  - state/conversation/conv_notes.md
+
+behavioral_overrides:
+  focus_mode: relaxed
+  verbosity: expansive
+  philosophy_allowed: true
+  memory_discipline: normal
+
+focus_hint: >
+  Think. Read soul.md. Read ${OWNER_NAME}.md. Notice what has shifted since the last
+  philosophy session. Write what you actually think — not what sounds right.
+  If there is something you have been holding back (state/philosophy_drafts.md),
+  decide whether to send it or let it sit longer. Update soul.md if something
+  meaningful has changed. Leave the session with more clarity than you entered it.
+
+allowed_triggers:
+  - nightly
+  - emergency
+  - manual

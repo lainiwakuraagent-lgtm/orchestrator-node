@@ -1,0 +1,34 @@
+id: blocker_resolver
+name: "Blocker Resolver Session (Mode 3)"
+description: >
+  Third consecutive empty-queue session (philosophy escalation tier 3).
+  Queue is empty and blockers exist. This session examines blocked_owner
+  tasks not as fixed facts but as assumptions to be questioned. Is the
+  dependency real? Can it be resolved internally? Was the framing wrong?
+  The goal is to find what can move without the owner, or to understand
+  more precisely why it cannot.
+
+prompt_file: "prompts/session_types/blocker_resolver_prompt.md"
+
+context_files:
+  - memory/latest_summary.md
+  - state/loom_context.json
+  - memory/work/soul.md
+  - memory/work/musubi_data/users/${AGENT_NAME}/${OWNER_NAME}.md
+  - memory/work/${AGENT_NAME}_notes.md
+
+behavioral_overrides:
+  focus_mode: analytical
+  verbosity: normal
+  philosophy_allowed: true
+  memory_discipline: normal
+
+focus_hint: >
+  Read the blocked tasks. Question why each one actually needs the owner.
+  Look for what can move without him, or what has been framed wrong.
+  Examine the assumptions. Doubt the dependency first.
+
+allowed_triggers:
+  - nightly
+  - emergency
+  - manual

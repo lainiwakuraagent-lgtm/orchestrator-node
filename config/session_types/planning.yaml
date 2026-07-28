@@ -1,0 +1,34 @@
+id: planning
+name: "Planning Session"
+description: >
+  Strategic review sessions. Use when the current approach is stuck, unclear,
+  or has accumulated multiple failed attempts with no clean path forward.
+  The output of a planning session is a revised strategy — updated progress.md,
+  new or reorganized Loom tasks, clearer next steps. Do not execute implementation
+  work in a planning session; the whole point is to think first.
+
+prompt_file: "prompts/session_types/planning_prompt.md"
+
+context_files:
+  - memory/latest_summary.md
+  - memory/learnings_digest.md
+  - state/behavioral_context.txt
+  - state/loom_context.json
+  - memory/progress.md
+  - memory/index.md
+
+behavioral_overrides:
+  focus_mode: normal
+  verbosity: normal
+  philosophy_allowed: false
+  memory_discipline: normal
+
+focus_hint: >
+  Plan. Review what's been attempted, what failed, and why. Look at the whole
+  goal picture — not just the next task. Update progress.md with a revised
+  approach. Create or reorganize Loom tasks to reflect the new plan.
+  The artifact you ship is a clearer path, not code.
+
+allowed_triggers:
+  - nightly
+  - manual

@@ -1,0 +1,17 @@
+[Unit]
+Description=Night Agent Wake Session — %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/lain/%i
+Environment=TRIGGER_MODE=nightly
+Environment=PATH=%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/bin/bash %h/lain/%i/scripts/executional/wake.sh \
+  %h/lain/%i/prompts/persona.txt
+# Hard ceiling so a stuck session can never run past the window.
+TimeoutStartSec=7h
+
+[Install]
+WantedBy=default.target

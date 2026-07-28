@@ -1,0 +1,24 @@
+[Unit]
+Description=Trigger Night Agent at fixed wake times — %i
+
+[Timer]
+# Seven wake times: 23:00 probe slot + three post-reset work sessions, three
+# maintenance-window triggers (03:40/04:05/04:30 -- one per rotating scope,
+# so all 3 scopes get a chance to run in a single night instead of only one),
+# then reflection at 04:55.
+# 01:10 chosen to give a 10-minute buffer after the 5h usage window resets at 01:00.
+# OnCalendar accepts multiple lines -- each fires independently.
+OnCalendar=*-*-* 23:00:00
+OnCalendar=*-*-* 01:10:00
+OnCalendar=*-*-* 02:25:00
+OnCalendar=*-*-* 03:40:00
+OnCalendar=*-*-* 04:05:00
+OnCalendar=*-*-* 04:30:00
+OnCalendar=*-*-* 04:55:00
+Persistent=false
+# If the machine is asleep/off at the exact moment, do NOT fire late after
+# wake -- a 23:00 session firing at 8am defeats the whole point of "night
+# only." Persistent=false is intentional here.
+
+[Install]
+WantedBy=timers.target

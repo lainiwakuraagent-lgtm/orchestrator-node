@@ -1,0 +1,19 @@
+# Planning scope override, goal level — selected by load_type_config() when
+# resolve_type()'s matched target is a needs_plan-status goal, not a project
+# or task. Overrides planning.yaml's prompt_file/context_files/focus_hint;
+# everything else (behavioral_overrides, allowed_triggers) comes from the base.
+
+prompt_file: "prompts/session_types/planning_goal_prompt.md"
+
+context_files:
+  - memory/latest_summary.md
+  - state/loom_context.json
+  - memory/progress.md
+
+focus_hint: >
+  Decompose the goal named in the TARGET block above into 2-4 projects.
+  Do not write task-level steps directly — that's a project-level planning
+  session's job, once a project here reaches needs_plan. Check existing
+  projects/tasks under this goal first so you don't duplicate, and glance at
+  sibling goals so a proposed project that actually belongs elsewhere doesn't
+  get forced in here.

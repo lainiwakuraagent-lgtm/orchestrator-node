@@ -1,0 +1,11 @@
+[Unit]
+Description=Conversation Layer Watchdog Timer (every 5 min) — %i
+Requires=conv-watchdog@%i.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=conv-watchdog@%i.service
+
+[Install]
+WantedBy=timers.target

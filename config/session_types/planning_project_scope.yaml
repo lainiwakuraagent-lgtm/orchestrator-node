@@ -1,0 +1,13 @@
+# Planning scope override, project level — selected by load_type_config()
+# when resolve_type()'s matched target is a needs_plan-status project. Uses
+# the same base planning_prompt.md as before this split existed (today's
+# planning content already works at this granularity); only focus_hint
+# changes, to point explicitly at the matched project instead of being
+# goal/project-agnostic.
+
+focus_hint: >
+  Plan the project named in the TARGET block above. Review what's been
+  attempted under it, what failed, and why. Update memory/progress.md with a
+  revised approach scoped to this project. Create or reorganize Loom tasks
+  (with this project's id) to reflect the new plan. The artifact you ship is
+  a clearer path for this project, not code.

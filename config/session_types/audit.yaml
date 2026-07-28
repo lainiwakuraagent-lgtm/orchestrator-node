@@ -1,0 +1,39 @@
+id: audit
+name: "Audit Session"
+description: >
+  Review review-status goals, or milestone_review-tagged tasks whose
+  dependencies are all done (goals checked first when both are pending).
+  Verifies the actual deliverable(s) against what was claimed, checks
+  integration with the rest of the system, and either closes it out or spins
+  up follow-up work for what's missing. The specific matched record is in the
+  injected TARGET block, not necessarily state/loom_context.json's active goal.
+
+prompt_file: "prompts/session_types/audit_prompt.md"
+
+context_files:
+  - memory/latest_summary.md
+  - memory/learnings_digest.md
+  - state/behavioral_context.txt
+  - state/loom_context.json
+  - memory/progress.md
+  - memory/index.md
+
+behavioral_overrides:
+  focus_mode: normal
+  verbosity: normal
+  philosophy_allowed: false
+  memory_discipline: normal
+
+focus_hint: >
+  Audit. Read the goal or milestone_review task in the TARGET block above.
+  Verify the deliverable(s) actually exist, work, and integrate with what
+  they're supposed to touch -- don't take the description's word for it, check
+  the artifact. For a goal, also check every project/task under it is
+  genuinely closed. Close it out if it holds up. If it doesn't, create
+  specific follow-up work describing exactly what's missing or broken, and
+  leave it open until that closes.
+
+allowed_triggers:
+  - nightly
+  - manual
+  - emergency

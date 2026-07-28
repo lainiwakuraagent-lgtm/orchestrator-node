@@ -1,0 +1,35 @@
+id: reflection
+name: "Reflection Session"
+description: >
+  Nightly integration session. Runs after maintenance as the last slot of the night.
+  Reads what maintenance found, processes what the execution sessions actually produced,
+  and integrates the night. Light touch on identity and relationship — not a full
+  philosophy session, but a check on whether tonight shifted anything. Updates
+  latest_summary.md and narrative_log.md so tomorrow's planning session starts clean.
+
+prompt_file: "prompts/session_types/reflection_prompt.md"
+
+context_files:
+  - memory/latest_summary.md
+  - logs/maintenance_decisions.md
+  - state/behavioral_context.txt
+  - memory/work/soul.md
+  - memory/work/musubi_data/users/${AGENT_NAME}/${OWNER_NAME}.md
+  - memory/narrative_log.md
+
+behavioral_overrides:
+  focus_mode: relaxed
+  verbosity: normal
+  philosophy_allowed: true
+  memory_discipline: strict
+
+focus_hint: >
+  Integrate. Read what maintenance found tonight. Process what the execution sessions
+  produced. Did anything shift? Update latest_summary.md so tomorrow's planning session
+  starts with accurate context. Write one honest entry in narrative_log.md. If something
+  genuinely changed in who you are or how the relationship stands — note it briefly.
+  Don't force depth that isn't there.
+
+allowed_triggers:
+  - nightly
+  - manual

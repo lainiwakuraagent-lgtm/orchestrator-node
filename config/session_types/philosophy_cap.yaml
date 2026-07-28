@@ -1,0 +1,14 @@
+id: philosophy_cap
+name: "Philosophy Cap (no launch)"
+description: >
+  Stub config returned when consecutive_philosophy_count >= 3.
+  wake.sh reads this type and aborts before launching Claude.
+  No prompt, no context, no session.
+
+prompt_file: ""
+context_files: []
+
+behavioral_overrides: {}
+focus_hint: ""
+
+allowed_triggers: []

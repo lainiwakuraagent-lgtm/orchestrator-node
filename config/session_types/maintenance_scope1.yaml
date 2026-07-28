@@ -1,0 +1,18 @@
+scope_id: 1
+scope_name: "Memory & Context"
+scope_slug: memory
+
+context_files:
+  - memory/latest_summary.md
+  - memory/learnings.md
+  - memory/index.md
+  - memory/progress.md
+  - logs/session_log.csv
+  - memory/work/pending_decisions.md
+
+focus_hint: >
+  Memory & Context maintenance. Prune stale session files from memory/sessions/
+  (older than 14 days, already summarized). Fix broken index refs via tools/executional/index_check.py.
+  Update memory/learnings_digest.md if learnings.md has new entries since last digest.
+  Prune state/conversation/ checkpoint artifacts if idle > 7 days. Review pending_decisions.md
+  for items overdue > 14 days. Goal: smaller, more accurate memory layer for next session.
