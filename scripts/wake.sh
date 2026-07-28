@@ -10,8 +10,7 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="${PROJECT_DIR:-$(dirname "$SCRIPT_DIR")}"
+PROJECT_DIR="${PROJECT_DIR:-/home/andrii/lain/agent_project}"
 STATE_DIR="$PROJECT_DIR/state"
 LOG_DIR="$PROJECT_DIR/logs"
 WRAPPER_TEMPLATE="$PROJECT_DIR/prompts/wrapper_prompt.md"
@@ -158,6 +157,12 @@ if [ "$GOAL_STATUS" = "complete" ]; then
   fi
 fi
 
+if [ -n "$PERSONA_FILE" ] && [ -f "$PERSONA_FILE" ]; then
+  persona_arg="$PERSONA_FILE"
+else
+  persona_arg=""
+fi
+
 # --- Session type resolution (Tasks 37/38) ---
 # Priority: SESSION_TYPE env var → session_schedule.json one_off → recurring → default
 # Resolves type, loads type config YAML, assembles context files + type prompt.
@@ -212,12 +217,6 @@ else
   CURRENT_SESSION_TYPE_SOURCE="default"
   export CURRENT_SESSION_TYPE CURRENT_SESSION_TYPE_SOURCE
   echo "$CURRENT_SESSION_TYPE" > "$STATE_DIR/current_session_type.txt"
-fi
-
-if [ -n "$PERSONA_FILE" ] && [ -f "$PERSONA_FILE" ]; then
-  persona_arg="$PERSONA_FILE"
-else
-  persona_arg=""
 fi
 
 python3 "$PROJECT_DIR/scripts/splice_prompt.py" \
@@ -294,6 +293,18 @@ if [ -f "$NEXUS_PASS_FILE" ]; then
   else
     log_line "WARNING: Nexus JWT refresh failed (non-fatal) — nexus may be down or password changed."
   fi
+fi
+
+# --- Nexus heartbeat: push last_seen at session start (non-fatal, T402) ---
+_nexus_token_file="$STATE_DIR/nexus_${AGENT_NAME}_token.txt"
+if [ -f "$_nexus_token_file" ]; then
+  _hb_token=$(cat "$_nexus_token_file")
+  curl -s --max-time 5 -X POST "$NEXUS_URL/agents/${AGENT_NAME}/heartbeat" \
+    -H "Authorization: Bearer $_hb_token" \
+    -H "Content-Type: application/json" \
+    -d "{\"status\":\"session_start\",\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
+    > /dev/null 2>&1 || true
+  log_line "Nexus heartbeat sent (non-fatal if endpoint not yet live)."
 fi
 
 # --- Generate behavioral context snapshot (non-fatal) ---
