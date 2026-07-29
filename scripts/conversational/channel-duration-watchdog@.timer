@@ -1,0 +1,11 @@
+[Unit]
+Description=Agent-Channel Duration Watchdog Timer (every 5 min) — %i
+Requires=channel-duration-watchdog@%i.service
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+Unit=channel-duration-watchdog@%i.service
+
+[Install]
+WantedBy=timers.target

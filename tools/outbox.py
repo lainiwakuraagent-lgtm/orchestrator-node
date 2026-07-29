@@ -29,8 +29,12 @@ Outbox schema:
   }
 
 Routing (done by drain):
-  type=message  + to=owner   -> Telegram
-  type=question + to=owner   -> Telegram (prefixed "Question for you:")
+  type=message    + to=owner           -> Telegram
+  type=question   + to=owner           -> Telegram (prefixed "Question for you:")
+  type=nexus_send + channel_id=<uuid>  -> nexus_watcher_queue.json
+                                          (picked up by nexus_channel_watcher.py
+                                           as an outbox_intent event; the live
+                                           agent-channel session composes + sends)
 
 A question-type send() also appends to state/conversation/open_questions.json
 (status=open). The conversational layer marks entries answered in-session.
@@ -219,14 +223,23 @@ SENDERS = {"telegram": _send_telegram}
 
 
 def _route_nexus_send(entry: dict, dry_run: bool = False) -> bool:
-    """Route a nexus_send entry to state/nexus_watcher_queue.json.
+    """Queue a nexus_send intent for pickup by nexus_channel_watcher.py.
 
-    nexus_watcher.py (always-on process) polls this file and sends via Nexus API.
+    nexus_channel_watcher.py runs as agent-channel@<id>.service and polls
+    nexus_watcher_queue.json for entries matching its channel_id. On match it
+    emits {event:system, kind:outbox_intent, content:...} to the live session,
+    which composes and sends the actual Nexus message. Content is intent/idea,
+    not verbatim text.
+
     nexus_send schema: {type:"nexus_send", channel_id:<uuid>, content:<str>,
                         expects_reply:<bool>}
     """
+    channel_id = entry.get("channel_id") or entry.get("channel")
+    if not channel_id:
+        _log("nexus_send entry missing channel_id — intent will never be surfaced; dropping")
+        return False
     if dry_run:
-        _log(f"[DRY-RUN] would queue nexus_send for channel {entry.get('channel_id') or entry.get('channel')}")
+        _log(f"[DRY-RUN] would queue nexus_send for channel {channel_id}")
         return True
     try:
         existing: list = []
@@ -237,14 +250,14 @@ def _route_nexus_send(entry: dict, dry_run: bool = False) -> bool:
                 pass
         existing.append({
             "id": entry.get("id", f"ns_{int(time.time())}"),
-            "channel_id": entry.get("channel_id") or entry.get("channel"),
+            "channel_id": channel_id,
             "content": entry.get("content", ""),
             "expects_reply": entry.get("expects_reply", False),
             "queued_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "sent": False,
         })
         WATCHER_QUEUE_FILE.write_text(json.dumps(existing, indent=2))
-        _log(f"queued nexus_send to watcher_queue (channel={entry.get('channel_id') or entry.get('channel')})")
+        _log(f"queued nexus_send intent to watcher_queue (channel={channel_id})")
         return True
     except OSError as e:
         _log(f"watcher queue write error: {e}")
@@ -276,7 +289,7 @@ def _drain(dry_run: bool = False) -> int:
 
         msg_type = entry.get("type", "message")
 
-        # nexus_send entries go to nexus_watcher_queue.json, not sent directly.
+        # nexus_send: queue intent for nexus_channel_watcher.py (not a direct API call).
         if msg_type == "nexus_send":
             if _route_nexus_send(entry, dry_run=dry_run):
                 entry["sent"] = True

@@ -1,0 +1,31 @@
+[Unit]
+Description=Nexus Agent Channel Session — %i
+Documentation=file://%h/.config/systemd/user/orchestrator-channel.env
+After=network-online.target
+Wants=network-online.target
+# Each channel instance is independent — no shared dependency
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+# PROJECT_DIR is written here by local_setup.sh during provisioning
+EnvironmentFile=%h/.config/systemd/user/orchestrator-channel.env
+Environment=SESSION_TYPE=agent_channel
+Environment=TRIGGER_MODE=manual
+Environment=XDG_RUNTIME_DIR=%t
+ExecStart=/usr/bin/bash ${PROJECT_DIR}/scripts/conversational/agent_channel.sh %i
+# Restart on crash — agent_channel.sh handles clean exits internally
+Restart=on-failure
+RestartSec=30s
+# No timeout — channel sessions run as long as the relationship is active
+TimeoutStartSec=infinity
+# Resource limits — same as conversation.service (one slot per channel)
+CPUQuota=20%
+MemoryMax=256M
+# Journal logging (journalctl --user -u agent-channel@<id>.service -f)
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

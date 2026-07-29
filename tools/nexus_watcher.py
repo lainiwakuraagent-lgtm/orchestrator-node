@@ -310,13 +310,19 @@ def poll_once(token: str, state: dict, dry_run: bool = False) -> str:
             peer_id = peer_ids.get(channel_id, "")
             log(f"channel {channel_id}: {len(new_msgs)} new message(s) from {peer_id or '(unknown)'}")
             if not is_channel_session_active(channel_id):
-                if spawn_channel_session(channel_id, peer_id, dry_run=dry_run):
+                spawned = spawn_channel_session(channel_id, peer_id, dry_run=dry_run)
+                if spawned:
                     state.setdefault(channel_id, {})["last_spawn"] = now_iso
+                    # Advance cursor only on successful spawn — per-channel session owns
+                    # the authoritative seen-marker (state/agent_channels/<id>/last_read.txt).
+                    # If spawn failed, leave cursor unchanged so next poll retries.
+                    last_read[channel_id] = messages[0]["id"]
+                else:
+                    log(f"channel {channel_id}: spawn failed — cursor unchanged, will retry next poll")
             else:
                 log(f"channel {channel_id}: session already active")
-
-            # Advance cursor to newest message (after spawn so session picks it up before next poll)
-            last_read[channel_id] = messages[0]["id"]
+                # Active session tracks its own per-channel cursor; safe to advance ours.
+                last_read[channel_id] = messages[0]["id"]
             state.setdefault(channel_id, {})["last_activity"] = now_iso
 
     save_last_read(last_read)

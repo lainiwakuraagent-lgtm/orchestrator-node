@@ -242,6 +242,12 @@ while true; do
 
     log_line "CONV: Session #$RESTART_COUNT exited (code=$EXIT_CODE, reason=$EXIT_REASON)."
 
+    # Write conversational analytics record for this session.
+    /usr/bin/python3 "$PROJECT_DIR/tools/conversational/conversational_analytics_write.py" \
+        --channel telegram \
+        --exit-reason "$EXIT_REASON" \
+        2>/dev/null || true
+
     if [ "$EXIT_REASON" = "idle_close" ]; then
         log_line "CONV: Idle-close — not restarting. Service will stop."
         break

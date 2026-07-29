@@ -1,0 +1,13 @@
+[Unit]
+Description=Agent-Channel Duration Watchdog — %i
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/lain/%i
+ExecStart=/usr/bin/python3 %h/lain/%i/tools/conversational/channel_duration_watchdog.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
