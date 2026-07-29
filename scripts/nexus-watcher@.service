@@ -7,6 +7,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=%h/lain/%i
+# Load agent_config.env so AGENT_NAME, NEXUS_URL etc. are available
+EnvironmentFile=-%h/lain/%i/state/agent_config.env
 Environment=XDG_RUNTIME_DIR=%t
 ExecStart=/usr/bin/python3 %h/lain/%i/tools/nexus_watcher.py
 # Restart on crash — never exits cleanly unless SIGTERM.
