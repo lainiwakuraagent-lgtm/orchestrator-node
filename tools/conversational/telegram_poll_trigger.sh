@@ -15,7 +15,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
 AGENT_ENV="$PROJECT_DIR/identity/agent.env"
 STATE_DIR="$PROJECT_DIR/state"
 LOG_DIR="$PROJECT_DIR/logs"
@@ -114,7 +114,7 @@ fi
 # Trigger session
 log "Triggering wake.sh (Telegram-driven)."
 TRIGGER_MODE=manual PROJECT_DIR="$PROJECT_DIR" \
-    bash "$PROJECT_DIR/scripts/wake.sh" \
+    bash "$PROJECT_DIR/scripts/executional/wake.sh" \
     "$PROJECT_DIR/prompts/goal.txt" \
     "$PROJECT_DIR/prompts/persona.txt" \
     >> "$LOG_DIR/session.out" 2>> "$LOG_DIR/session.err" &
