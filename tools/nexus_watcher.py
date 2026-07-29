@@ -41,13 +41,14 @@ PROJECT_DIR = SCRIPT_DIR.parent
 PID_FILE = PROJECT_DIR / "state" / "nexus_watcher.pid"
 LAST_READ_FILE = PROJECT_DIR / "state" / "nexus_last_read.json"
 STATE_FILE = PROJECT_DIR / "state" / "nexus_watcher_state.json"
-TOKEN_FILE = PROJECT_DIR / "state" / "nexus_lain_token.txt"
+_AGENT_NAME = os.environ.get("AGENT_NAME", "orchestrator")
+TOKEN_FILE = PROJECT_DIR / "state" / f"nexus_{_AGENT_NAME}_token.txt"
 WAKE_LOG = PROJECT_DIR / "logs" / "wake.log"
 PASS_FILE = PROJECT_DIR / "identity" / "nexus_seed_passwords.txt"
 CHANNELS_DIR = PROJECT_DIR / "state" / "agent_channels"
 
 NEXUS_URL = os.environ.get("NEXUS_URL", "http://100.110.36.84:8900")
-NEXUS_USERNAME = os.environ.get("NEXUS_USERNAME", "lain")
+NEXUS_USERNAME = os.environ.get("NEXUS_USERNAME", os.environ.get("AGENT_NAME", "orchestrator"))
 
 POLL_INTERVAL = 30  # seconds
 
