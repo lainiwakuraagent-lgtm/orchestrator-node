@@ -1,0 +1,18 @@
+[Unit]
+Description=Nexus Channel Dispatcher — %i
+Documentation=file://%h/lain/%i/tools/nexus_watcher.py
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/lain/%i
+Environment=XDG_RUNTIME_DIR=%t
+ExecStart=/usr/bin/python3 %h/lain/%i/tools/nexus_watcher.py
+# Restart on crash — never exits cleanly unless SIGTERM.
+Restart=on-failure
+RestartSec=30s
+TimeoutStartSec=30
+
+[Install]
+WantedBy=default.target
