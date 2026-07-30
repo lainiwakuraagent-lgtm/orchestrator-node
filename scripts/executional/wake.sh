@@ -178,7 +178,7 @@ if [ "$TRIGGER_MODE" = "nightly" ]; then
 
   window_launch=$(echo "$window_result" | grep '^LAUNCH:' | head -1 | awk '{print $2}')
   WINDOW_TYPE=$(echo "$window_result" | grep '^WINDOW_TYPE:' | head -1 | awk '{print $2}')
-  ONE_OFF_INDEX=$(echo "$window_result" | grep '^one_off_index:' | head -1 | awk '{print $2}')
+  ONE_OFF_INDEX=$(echo "$window_result" | grep '^one_off_index:' | head -1 | awk '{print $2}' || true)
   export WINDOW_TYPE
   log_line "Window type: $WINDOW_TYPE"
 
@@ -217,7 +217,7 @@ if [ "$TRIGGER_MODE" != "nightly" ] && [ -z "$ONE_OFF_INDEX" ]; then
   if [ -f "$_schedule_file" ]; then
     _check_out=$(python3 "$PROJECT_DIR/scripts/executional/check_window.py" check \
       --schedule-file "$_schedule_file" --lock-file /dev/null 2>/dev/null || true)
-    ONE_OFF_INDEX=$(echo "$_check_out" | grep '^one_off_index:' | head -1 | awk '{print $2}')
+    ONE_OFF_INDEX=$(echo "$_check_out" | grep '^one_off_index:' | head -1 | awk '{print $2}' || true)
     SCHEDULE_FILE="$_schedule_file"
     if [ -n "$ONE_OFF_INDEX" ]; then
       log_line "One-off entry detected in $TRIGGER_MODE mode (index $ONE_OFF_INDEX)."
